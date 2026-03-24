@@ -5,6 +5,7 @@ export { ContextStore, openContextStore } from "./core/store.js";
 export { ContextWatcher } from "./core/watcher.js";
 export { initWorkspace } from "./core/scaffold.js";
 export { runDoctor } from "./core/doctor.js";
+export { isSupportedMcpTarget, renderMcpConfig, stringifyMcpConfig, supportedMcpTargets } from "./core/mcp-config.js";
 export type {
   Annotation,
   ContextDocument,

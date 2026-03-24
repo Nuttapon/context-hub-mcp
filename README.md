@@ -74,15 +74,21 @@ This scaffolds:
 npx context-hub-mcp reindex
 ```
 
-### 3. Run the MCP server
+### 3. Generate MCP client config
 
 ```bash
-npx context-hub-mcp serve
+npx context-hub-mcp config --target claude-code --cwd /absolute/path/to/project
 ```
+
+This prints ready-to-paste JSON for the selected MCP client. Use `--out <path>` if you want to write it to a file.
 
 ### 4. Point your MCP client at it
 
-Use `npx` in the client config so the package can be run as a local stdio MCP server.
+Paste the generated JSON into your MCP client config.
+
+### 5. Run the MCP server
+
+Once the client is configured, it will launch the server with `npx context-hub-mcp serve`.
 
 ## Generated Structure
 
@@ -150,6 +156,35 @@ Checks include:
 - how many documents were indexed
 - parse failures
 - whether `.context/.gitignore` ignores DB files
+
+### `config`
+
+Generate MCP client config JSON.
+
+```bash
+npx context-hub-mcp config --target claude-code --cwd /absolute/path/to/project
+```
+
+Useful flags:
+
+- `--target <name>`
+- `--cwd <path>`
+- `--name <value>`
+- `--out <path>`
+- `--list-targets`
+
+Supported targets:
+
+- `claude-code`
+- `copilot`
+
+By default the command prints JSON to stdout. Use `--out` to write the generated config to a file. Use `--name` to change the MCP server key from the default `context-hub`.
+
+To see the supported targets from the CLI:
+
+```bash
+npx context-hub-mcp config --list-targets
+```
 
 ### `serve`
 
@@ -251,21 +286,13 @@ This is especially useful when an agent wants machine-readable context instead o
 
 ## Claude Code Setup
 
-Example config:
+Generate config:
 
-```json
-{
-  "mcpServers": {
-    "context-hub": {
-      "command": "npx",
-      "args": ["-y", "context-hub-mcp@latest", "serve"],
-      "env": {}
-    }
-  }
-}
+```bash
+npx context-hub-mcp config --target claude-code --cwd /absolute/path/to/project
 ```
 
-If the project lives elsewhere, add `--cwd`:
+Example output:
 
 ```json
 {
@@ -284,9 +311,27 @@ If the project lives elsewhere, add `--cwd`:
 }
 ```
 
+To write the JSON directly to a file:
+
+```bash
+npx context-hub-mcp config --target claude-code --cwd /absolute/path/to/project --out ./context-hub.mcp.json
+```
+
+To change the MCP server name:
+
+```bash
+npx context-hub-mcp config --target claude-code --cwd /absolute/path/to/project --name docs-hub
+```
+
 ## GitHub Copilot Setup
 
-Example local MCP configuration:
+Generate config:
+
+```bash
+npx context-hub-mcp config --target copilot --cwd /absolute/path/to/project
+```
+
+Example output:
 
 ```json
 {
@@ -410,6 +455,16 @@ See:
 
 - [examples/claude-code.mcp.json](./examples/claude-code.mcp.json)
 - [examples/copilot.mcp.json](./examples/copilot.mcp.json)
+
+## Maintainer Release
+
+For manual GitHub + npm releases:
+
+```bash
+npm run prepublish-check
+```
+
+This runs tests, typecheck, build, and `npm pack --json` before publish. The full maintainer workflow is documented in [docs/releasing.md](./docs/releasing.md).
 
 ## License
 

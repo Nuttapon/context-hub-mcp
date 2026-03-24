@@ -87,4 +87,112 @@ describe("CLI", () => {
     expect(doctor.stdout).toMatch(/documents indexed: 0/i);
     await expect(access(path.join(workspace, ".context", "context_hub.db"))).rejects.toThrow();
   });
+
+  test("config prints Claude Code MCP config JSON to stdout", async () => {
+    const workspace = await createTempWorkspace();
+    workspaces.push(workspace);
+
+    const result = await runCli(["config", "--target", "claude-code", "--cwd", workspace], workspace);
+
+    expect(result.exitCode).toBe(0);
+
+    const config = JSON.parse(result.stdout);
+    expect(config).toEqual({
+      mcpServers: {
+        "context-hub": {
+          command: "npx",
+          args: ["-y", "context-hub-mcp@latest", "serve", "--cwd", workspace],
+        },
+      },
+    });
+  });
+
+  test("config prints Copilot MCP config JSON to stdout", async () => {
+    const workspace = await createTempWorkspace();
+    workspaces.push(workspace);
+
+    const result = await runCli(["config", "--target", "copilot", "--cwd", workspace], workspace);
+
+    expect(result.exitCode).toBe(0);
+
+    const config = JSON.parse(result.stdout);
+    expect(config).toEqual({
+      mcpServers: {
+        "context-hub": {
+          type: "local",
+          command: "npx",
+          args: ["-y", "context-hub-mcp@latest", "serve", "--cwd", workspace],
+        },
+      },
+    });
+  });
+
+  test("config writes generated JSON to a file when --out is provided", async () => {
+    const workspace = await createTempWorkspace();
+    workspaces.push(workspace);
+    const outputPath = path.join(workspace, "context-hub.mcp.json");
+
+    const result = await runCli(
+      ["config", "--target", "claude-code", "--cwd", workspace, "--out", outputPath],
+      workspace,
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toMatch(/wrote mcp config/i);
+
+    const fileContents = await readFile(outputPath, "utf8");
+    expect(JSON.parse(fileContents)).toEqual({
+      mcpServers: {
+        "context-hub": {
+          command: "npx",
+          args: ["-y", "context-hub-mcp@latest", "serve", "--cwd", workspace],
+        },
+      },
+    });
+  });
+
+  test("config rejects unsupported targets with a helpful error", async () => {
+    const workspace = await createTempWorkspace();
+    workspaces.push(workspace);
+
+    const result = await runCli(["config", "--target", "unknown", "--cwd", workspace], workspace);
+
+    expect(result.exitCode).not.toBe(0);
+    expect(result.stderr).toMatch(/unsupported target/i);
+    expect(result.stderr).toMatch(/claude-code/i);
+    expect(result.stderr).toMatch(/copilot/i);
+  });
+
+  test("config allows overriding the MCP server name", async () => {
+    const workspace = await createTempWorkspace();
+    workspaces.push(workspace);
+
+    const result = await runCli(
+      ["config", "--target", "claude-code", "--cwd", workspace, "--name", "docs-hub"],
+      workspace,
+    );
+
+    expect(result.exitCode).toBe(0);
+
+    const config = JSON.parse(result.stdout);
+    expect(config).toEqual({
+      mcpServers: {
+        "docs-hub": {
+          command: "npx",
+          args: ["-y", "context-hub-mcp@latest", "serve", "--cwd", workspace],
+        },
+      },
+    });
+  });
+
+  test("config can list supported targets without other required flags", async () => {
+    const workspace = await createTempWorkspace();
+    workspaces.push(workspace);
+
+    const result = await runCli(["config", "--list-targets"], workspace);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("claude-code");
+    expect(result.stdout).toContain("copilot");
+  });
 });

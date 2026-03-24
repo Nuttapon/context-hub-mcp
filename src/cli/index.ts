@@ -2,11 +2,13 @@
 
 import process from "node:process";
 import path from "node:path";
+import { writeFile } from "node:fs/promises";
 
 import { Command } from "commander";
 
 import { loadConfig } from "../core/config.js";
 import { runDoctor } from "../core/doctor.js";
+import { isSupportedMcpTarget, renderMcpConfig, stringifyMcpConfig, supportedMcpTargets } from "../core/mcp-config.js";
 import { initWorkspace } from "../core/scaffold.js";
 import { openContextStore } from "../core/store.js";
 import { startStdioServer } from "../transports/stdio/server.js";
@@ -16,6 +18,14 @@ type CommonOptions = {
   config?: string;
   contextDir?: string;
   dbPath?: string;
+};
+
+type ConfigCommandOptions = {
+  cwd?: string;
+  target?: string;
+  out?: string;
+  name?: string;
+  listTargets?: boolean;
 };
 
 function applyCommonOptions(command: Command): Command {
@@ -112,6 +122,44 @@ applyCommonOptions(
     void shutdown();
   });
 });
+
+program
+  .command("config")
+  .description("Generate MCP client config JSON")
+  .option(
+    "--target <name>",
+    `Client target (${supportedMcpTargets.join(", ")})`,
+  )
+  .option("--cwd <path>", "Working directory for the generated MCP server entry", process.cwd())
+  .option("--name <value>", "MCP server name", "context-hub")
+  .option("--out <path>", "Write the generated JSON to a file")
+  .option("--list-targets", "Print supported client targets")
+  .action(async (options: ConfigCommandOptions) => {
+    if (options.listTargets) {
+      process.stdout.write(`${supportedMcpTargets.join("\n")}\n`);
+      return;
+    }
+
+    if (!options.target) {
+      throw new Error(`Missing required option "--target". Supported targets: ${supportedMcpTargets.join(", ")}.`);
+    }
+
+    if (!isSupportedMcpTarget(options.target)) {
+      throw new Error(`Unsupported target "${options.target}". Supported targets: ${supportedMcpTargets.join(", ")}.`);
+    }
+
+    const cwd = path.resolve(options.cwd ?? process.cwd());
+    const rendered = stringifyMcpConfig(renderMcpConfig(options.target, cwd, options.name ?? "context-hub"));
+
+    if (options.out) {
+      const outputPath = path.resolve(cwd, options.out);
+      await writeFile(outputPath, rendered, "utf8");
+      process.stdout.write(`Wrote MCP config to ${outputPath}\n`);
+      return;
+    }
+
+    process.stdout.write(rendered);
+  });
 
 program.parseAsync(process.argv).catch(error => {
   process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
