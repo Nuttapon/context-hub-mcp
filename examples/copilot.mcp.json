@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "context-hub": {
+      "type": "local",
+      "command": "npx",
+      "args": [
+        "-y",
+        "context-hub-mcp@latest",
+        "serve",
+        "--cwd",
+        "/absolute/path/to/project"
+      ]
+    }
+  }
+}
