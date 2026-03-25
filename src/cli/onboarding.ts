@@ -1,6 +1,3 @@
-import { writeFile } from "node:fs/promises";
-import path from "node:path";
-
 import { confirm, select } from "@inquirer/prompts";
 
 import { type McpTarget } from "../core/mcp-config.js";
@@ -24,12 +21,6 @@ export function buildTargetChoices(): TargetChoice[] {
       description: "Generate ready-to-paste MCP config for Copilot local MCP setup",
     },
   ];
-}
-
-export async function writeGeneratedConfigFile(cwd: string, configContents: string): Promise<string> {
-  const outputPath = path.join(cwd, "context-hub.mcp.json");
-  await writeFile(outputPath, configContents, "utf8");
-  return outputPath;
 }
 
 export async function runInitOnboarding(_cwd: string): Promise<{ shouldRunReindex: boolean; target: McpTarget | null }> {

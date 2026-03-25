@@ -59,6 +59,18 @@ describe("CLI", () => {
     expect(result.stdout).toMatch(/next steps/i);
   });
 
+  test("init non-interactive output keeps the scaffold next steps", async () => {
+    const workspace = await createTempWorkspace();
+    workspaces.push(workspace);
+
+    const result = await runCli(["init", "--cwd", workspace], workspace);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("Initialized Context Hub workspace.");
+    expect(result.stdout).toContain("Run `npx context-hub-mcp reindex`");
+    expect(result.stdout).toContain("Point your MCP client at `npx context-hub-mcp serve`.");
+  });
+
   test("doctor and reindex report workspace health", async () => {
     const workspace = await createTempWorkspace();
     workspaces.push(workspace);

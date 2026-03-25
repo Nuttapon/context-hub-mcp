@@ -9,7 +9,7 @@ import { Command } from "commander";
 import { loadConfig } from "../core/config.js";
 import { runDoctor } from "../core/doctor.js";
 import { isSupportedMcpTarget, renderMcpConfig, stringifyMcpConfig, supportedMcpTargets } from "../core/mcp-config.js";
-import { runInitOnboarding, writeGeneratedConfigFile } from "./onboarding.js";
+import { runInitOnboarding } from "./onboarding.js";
 import { initWorkspace } from "../core/scaffold.js";
 import { openContextStore } from "../core/store.js";
 import { startStdioServer } from "../transports/stdio/server.js";
@@ -69,11 +69,12 @@ applyCommonOptions(program.command("init").description("Scaffold a .context work
     const cwd = path.resolve(options.cwd ?? process.cwd());
     const result = await initWorkspace(cwd);
 
-    process.stdout.write(`${result.message}\n`);
-
     if (!process.stdin.isTTY || !process.stdout.isTTY) {
+      process.stdout.write(`${result.message}\n`);
       return;
     }
+
+    process.stdout.write(`${result.interactiveMessage}\n`);
 
     const onboarding = await runInitOnboarding(cwd);
 
@@ -95,10 +96,10 @@ applyCommonOptions(program.command("init").description("Scaffold a .context work
     }
 
     const configContents = stringifyMcpConfig(renderMcpConfig(onboarding.target, cwd));
-    const outputPath = await writeGeneratedConfigFile(cwd, configContents);
 
-    process.stdout.write(`\nGenerated ${outputPath}\n`);
-    process.stdout.write("Paste this into your client config.\n");
+    process.stdout.write(`\nCopy this into your ${onboarding.target} MCP client config:\n\n`);
+    process.stdout.write(configContents);
+    process.stdout.write("\n");
     process.stdout.write("You do not need to run serve manually.\n");
   },
 );

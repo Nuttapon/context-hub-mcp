@@ -63,8 +63,8 @@ When run in a terminal, `init` continues with an interactive setup flow that can
 
 - build the local index
 - ask which MCP client you want to use with an interactive terminal menu
-- write `./context-hub.mcp.json`
-- tell you what to paste into your client config next
+- show ready-to-paste MCP config JSON
+- tell you what to do in your client config next
 
 In non-interactive environments, `init` only scaffolds files and exits.
 
@@ -95,7 +95,7 @@ npx context-hub-mcp config --target claude-code --cwd /absolute/path/to/project
 
 This prints ready-to-paste JSON for the selected MCP client. Use `--out <path>` if you want to write it to a file.
 
-When you use the interactive `init` flow, this step is handled for you by writing `./context-hub.mcp.json`.
+When you use the interactive `init` flow, this step is handled for you by showing the config JSON directly in the terminal.
 
 ### 4. Point your MCP client at it
 
@@ -159,7 +159,7 @@ When run in a TTY, `init` can continue into an interactive onboarding flow that:
 
 - reindexes the workspace
 - lets you choose an MCP client target
-- writes `./context-hub.mcp.json`
+- shows the MCP config you should paste into your client config
 - reminds you that the AI client will invoke `serve` for you
 
 ```bash

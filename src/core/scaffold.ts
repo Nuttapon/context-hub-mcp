@@ -113,7 +113,7 @@ async function writeIfMissing(targetPath: string, content: string, created: stri
   created.push(targetPath);
 }
 
-export async function initWorkspace(cwd: string): Promise<{ created: string[]; message: string }> {
+export async function initWorkspace(cwd: string): Promise<{ created: string[]; message: string; interactiveMessage: string }> {
   const created: string[] = [];
 
   await writeIfMissing(path.join(cwd, ".context", ".gitignore"), CONTEXT_GITIGNORE, created);
@@ -145,5 +145,6 @@ export async function initWorkspace(cwd: string): Promise<{ created: string[]; m
       "2. Run `npx context-hub-mcp reindex` to build the local SQLite index.",
       "3. Point your MCP client at `npx context-hub-mcp serve`.",
     ].join("\n"),
+    interactiveMessage: "Initialized Context Hub workspace.",
   };
 }
