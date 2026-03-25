@@ -26,7 +26,7 @@ const frontmatterSchema = z.object({
 
 function inferDomain(relativePath: string): string {
   const [firstSegment] = relativePath.split("/");
-  return firstSegment === "." || !firstSegment ? "meta" : firstSegment.replace(/s$/, "");
+  return firstSegment === "." || !firstSegment ? "meta" : firstSegment;
 }
 
 function normalizeDocument(relativePath: string, rawContent: string): ContextDocument {
@@ -58,17 +58,27 @@ export async function scanContextDocuments(config: ContextHubConfig): Promise<Sc
   const documents: ContextDocument[] = [];
   const errors: ScanResult["errors"] = [];
 
-  for (const relativePath of relativePaths.sort()) {
-    const absolutePath = path.join(config.contextDir, relativePath);
+  const results = await Promise.all(
+    relativePaths.sort().map(async relativePath => {
+      const absolutePath = path.join(config.contextDir, relativePath);
+      try {
+        const rawContent = await readFile(absolutePath, "utf8");
+        return { relativePath, document: normalizeDocument(relativePath, rawContent), error: null };
+      } catch (error) {
+        return {
+          relativePath,
+          document: null,
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    }),
+  );
 
-    try {
-      const rawContent = await readFile(absolutePath, "utf8");
-      documents.push(normalizeDocument(relativePath, rawContent));
-    } catch (error) {
-      errors.push({
-        path: relativePath,
-        message: error instanceof Error ? error.message : String(error),
-      });
+  for (const result of results) {
+    if (result.document) {
+      documents.push(result.document);
+    } else if (result.error !== null) {
+      errors.push({ path: result.relativePath, message: result.error });
     }
   }
 

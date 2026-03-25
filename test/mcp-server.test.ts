@@ -44,7 +44,7 @@ LINE Pay requires amount conversion.
     const transport = new StdioClientTransport({
       command: "node",
       args: ["--import", "tsx", "./src/cli/index.ts", "serve", "--cwd", workspace, "--no-watch"],
-      cwd: path.resolve("/Users/nuttapon/Nutty/context-hub-mcp"),
+      cwd: path.resolve(import.meta.dirname, ".."),
     });
 
     const client = new Client(

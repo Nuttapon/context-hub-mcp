@@ -36,7 +36,9 @@ export class ContextWatcher {
 
       this.#timer = setTimeout(() => {
         this.#timer = null;
-        void this.#store.reindex();
+        this.#store.reindex().catch(error => {
+          process.stderr.write(`[context-hub-mcp] reindex error: ${error instanceof Error ? error.message : String(error)}\n`);
+        });
       }, this.#config.reindexDebounceMs);
     };
 

@@ -7,6 +7,7 @@ import { writeFile } from "node:fs/promises";
 import { Command } from "commander";
 
 import { loadConfig } from "../core/config.js";
+import { PACKAGE_VERSION } from "../version.js";
 import { runDoctor } from "../core/doctor.js";
 import { isSupportedMcpTarget, renderMcpConfig, stringifyMcpConfig, supportedMcpTargets } from "../core/mcp-config.js";
 import { runInitOnboarding } from "./onboarding.js";
@@ -62,7 +63,7 @@ async function resolveConfig(options: CommonOptions & { watch?: boolean }): Prom
 
 const program = new Command();
 
-program.name("context-hub-mcp").description("Standalone .context-first MCP server").version("0.1.0");
+program.name("context-hub-mcp").description("Standalone .context-first MCP server").version(PACKAGE_VERSION);
 
 applyCommonOptions(program.command("init").description("Scaffold a .context workspace")).action(
   async (options: CommonOptions) => {

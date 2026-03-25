@@ -9,6 +9,7 @@ import type {
 function parseSections(content: string): StructuredSection[] {
   const sections: StructuredSection[] = [];
   let current: { title: string; level: number; lines: string[] } | null = null;
+  const preambleLines: string[] = [];
 
   for (const line of content.split("\n")) {
     const heading = /^(#+)\s+(.+)$/.exec(line);
@@ -33,6 +34,8 @@ function parseSections(content: string): StructuredSection[] {
 
     if (current) {
       current.lines.push(line);
+    } else {
+      preambleLines.push(line);
     }
   }
 
@@ -42,6 +45,12 @@ function parseSections(content: string): StructuredSection[] {
       level: current.level,
       body: current.lines.join("\n").trim(),
     });
+  }
+
+  const preamble = preambleLines.join("\n").trim();
+
+  if (preamble) {
+    sections.unshift({ title: "", level: 0, body: preamble });
   }
 
   return sections;
@@ -69,7 +78,7 @@ function parseKeyFileLine(line: string): KeyFile[] {
 
 function extractKeyFiles(sections: StructuredSection[]): KeyFile[] {
   return sections
-    .filter(section => section.title === "Key Files")
+    .filter(section => section.title.toLowerCase() === "key files")
     .flatMap(section => section.body.split("\n").flatMap(parseKeyFileLine));
 }
 

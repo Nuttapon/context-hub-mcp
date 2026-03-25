@@ -4,15 +4,7 @@ import path from "node:path";
 import type { ContextHubConfig } from "./types.js";
 
 import { scanContextDocuments } from "./indexer.js";
-
-async function fileExists(targetPath: string): Promise<boolean> {
-  try {
-    await access(targetPath);
-    return true;
-  } catch {
-    return false;
-  }
-}
+import { fileExists } from "./utils.js";
 
 async function writable(targetPath: string): Promise<boolean> {
   try {

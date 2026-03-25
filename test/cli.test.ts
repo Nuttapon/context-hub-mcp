@@ -15,7 +15,7 @@ async function runCli(args: string[], cwd: string): Promise<{ stdout: string; st
 
   return new Promise((resolve, reject) => {
     const child = spawn("node", ["--import", "tsx", "./src/cli/index.ts", ...args], {
-      cwd: path.resolve("/Users/nuttapon/Nutty/context-hub-mcp"),
+      cwd: path.resolve(import.meta.dirname, ".."),
       env: { ...process.env, FORCE_COLOR: "0" },
       stdio: ["ignore", "pipe", "pipe"],
     });

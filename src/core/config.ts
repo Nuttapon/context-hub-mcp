@@ -1,9 +1,10 @@
-import { access, readFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 
 import { z } from "zod";
 
 import type { ContextHubConfig, LoadConfigOptions } from "./types.js";
+import { fileExists } from "./utils.js";
 
 const configSchema = z
   .object({
@@ -15,15 +16,6 @@ const configSchema = z
     excludeGlobs: z.array(z.string().min(1)).optional(),
   })
   .strict();
-
-async function fileExists(targetPath: string): Promise<boolean> {
-  try {
-    await access(targetPath);
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 function resolveFrom(baseCwd: string, value: string): string {
   return path.isAbsolute(value) ? value : path.resolve(baseCwd, value);

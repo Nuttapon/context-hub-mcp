@@ -7,6 +7,7 @@ import type { ContextHubConfig } from "../../core/types.js";
 
 import { openContextStore } from "../../core/store.js";
 import { registerTools } from "../../tools/index.js";
+import { PACKAGE_VERSION } from "../../version.js";
 
 export async function startStdioServer(config: ContextHubConfig): Promise<{
   close: () => Promise<void>;
@@ -15,7 +16,7 @@ export async function startStdioServer(config: ContextHubConfig): Promise<{
   const watcher = config.watch ? new ContextWatcher(config, store) : null;
   const server = new McpServer({
     name: "context-hub-mcp",
-    version: "0.1.0",
+    version: PACKAGE_VERSION,
   });
 
   registerTools(server, store);

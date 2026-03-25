@@ -28,17 +28,21 @@ export function registerTools(server: McpServer, store: ContextStore): void {
       description: "List available knowledge domains and document counts from the local context hub.",
     },
     async () => {
-      const domains = await store.listDomains();
+      try {
+        const domains = await store.listDomains();
 
-      if (domains.length === 0) {
-        return textResult("No domains found. Initialize .context/ and reindex first.");
+        if (domains.length === 0) {
+          return textResult("No domains found. Initialize .context/ and reindex first.");
+        }
+
+        return textResult(
+          `Available knowledge domains:\n\n${domains
+            .map(domain => `- ${domain.domain} (${domain.count})`)
+            .join("\n")}`,
+        );
+      } catch (error) {
+        return errorResult(error instanceof Error ? error.message : String(error));
       }
-
-      return textResult(
-        `Available knowledge domains:\n\n${domains
-          .map(domain => `- ${domain.domain} (${domain.count})`)
-          .join("\n")}`,
-      );
     },
   );
 
@@ -150,22 +154,26 @@ export function registerTools(server: McpServer, store: ContextStore): void {
       },
     },
     async args => {
-      const pitfalls = await store.getPitfalls(
-        typeof args.domain === "string" ? args.domain : undefined,
-      );
+      try {
+        const pitfalls = await store.getPitfalls(
+          typeof args.domain === "string" ? args.domain : undefined,
+        );
 
-      if (pitfalls.length === 0) {
-        return textResult("No pitfalls documented yet.");
+        if (pitfalls.length === 0) {
+          return textResult("No pitfalls documented yet.");
+        }
+
+        return textResult(
+          pitfalls
+            .map(
+              pitfall =>
+                `## ${pitfall.title}\nPath: \`${pitfall.path}\` | Confidence: ${pitfall.confidence}\n\n${pitfall.content}`,
+            )
+            .join("\n\n---\n\n"),
+        );
+      } catch (error) {
+        return errorResult(error instanceof Error ? error.message : String(error));
       }
-
-      return textResult(
-        pitfalls
-          .map(
-            pitfall =>
-              `## ${pitfall.title}\nPath: \`${pitfall.path}\` | Confidence: ${pitfall.confidence}\n\n${pitfall.content}`,
-          )
-          .join("\n\n---\n\n"),
-      );
     },
   );
 
@@ -223,22 +231,26 @@ export function registerTools(server: McpServer, store: ContextStore): void {
       },
     },
     async args => {
-      const annotations = await store.listAnnotations(
-        typeof args.path === "string" ? args.path : undefined,
-      );
+      try {
+        const annotations = await store.listAnnotations(
+          typeof args.path === "string" ? args.path : undefined,
+        );
 
-      if (annotations.length === 0) {
-        return textResult("No annotations found.");
+        if (annotations.length === 0) {
+          return textResult("No annotations found.");
+        }
+
+        return textResult(
+          annotations
+            .map(
+              annotation =>
+                `**${annotation.documentPath}** — ${annotation.createdAt}\n${annotation.note}`,
+            )
+            .join("\n\n"),
+        );
+      } catch (error) {
+        return errorResult(error instanceof Error ? error.message : String(error));
       }
-
-      return textResult(
-        annotations
-          .map(
-            annotation =>
-              `**${annotation.documentPath}** — ${annotation.createdAt}\n${annotation.note}`,
-          )
-          .join("\n\n"),
-      );
     },
   );
 
@@ -248,10 +260,14 @@ export function registerTools(server: McpServer, store: ContextStore): void {
       description: "Re-scan .context/ and rebuild the local SQLite index.",
     },
     async () => {
-      const report = await store.reindex();
-      return textResult(
-        `Reindexed ${report.indexedCount} document(s). Parse errors: ${report.errors.length}.`,
-      );
+      try {
+        const report = await store.reindex();
+        return textResult(
+          `Reindexed ${report.indexedCount} document(s). Parse errors: ${report.errors.length}.`,
+        );
+      } catch (error) {
+        return errorResult(error instanceof Error ? error.message : String(error));
+      }
     },
   );
 }

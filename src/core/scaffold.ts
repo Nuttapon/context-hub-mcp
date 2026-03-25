@@ -1,5 +1,9 @@
-import { access, mkdir, writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+
+import { fileExists } from "./utils.js";
+
+const TODAY = new Date().toISOString().slice(0, 10);
 
 const CONTEXT_GITIGNORE = `context_hub.db
 context_hub.db-shm
@@ -20,7 +24,7 @@ const SCHEMA_MD = `---
 title: Context Hub Schema
 domain: meta
 tags: [schema, context-hub]
-last_verified: 2026-03-24
+last_verified: ${TODAY}
 confidence: high
 ---
 
@@ -33,7 +37,7 @@ Every document in \`.context/\` should include YAML frontmatter:
 title: Payment Rules
 domain: payments
 tags: [payments, line-pay]
-last_verified: 2026-03-24
+last_verified: ${TODAY}
 confidence: high
 ---
 \`\`\`
@@ -49,7 +53,7 @@ const EXAMPLE_DOMAIN = `---
 title: Example Domain
 domain: example
 tags: [example, workflow]
-last_verified: 2026-03-24
+last_verified: ${TODAY}
 confidence: medium
 ---
 
@@ -72,7 +76,7 @@ const EXAMPLE_INTEGRATION = `---
 title: Example Integration
 domain: integrations
 tags: [integration, example]
-last_verified: 2026-03-24
+last_verified: ${TODAY}
 confidence: medium
 ---
 
@@ -85,7 +89,7 @@ const EXAMPLE_PITFALL = `---
 title: Example Pitfall
 domain: example
 tags: [pitfall, example]
-last_verified: 2026-03-24
+last_verified: ${TODAY}
 confidence: high
 ---
 
@@ -94,17 +98,8 @@ confidence: high
 Capture gotchas that are expensive to rediscover.
 `;
 
-async function exists(targetPath: string): Promise<boolean> {
-  try {
-    await access(targetPath);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 async function writeIfMissing(targetPath: string, content: string, created: string[]): Promise<void> {
-  if (await exists(targetPath)) {
+  if (await fileExists(targetPath)) {
     return;
   }
 
