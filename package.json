@@ -1,6 +1,6 @@
 {
   "name": "context-hub-mcp",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Opinionated .context-first MCP server for local knowledge retrieval via stdio.",
   "license": "MIT",
   "type": "module",
@@ -36,12 +36,13 @@
     "context"
   ],
   "dependencies": {
+    "@inquirer/prompts": "^8.3.2",
     "@modelcontextprotocol/sdk": "^1.27.1",
-    "better-sqlite3": "^11.10.0",
+    "better-sqlite3": "^12.2.0",
     "chokidar": "^4.0.3",
     "commander": "^14.0.1",
-    "glob": "^11.0.3",
     "gray-matter": "^4.0.3",
+    "tinyglobby": "^0.2.14",
     "zod": "^3.24.2"
   },
   "devDependencies": {

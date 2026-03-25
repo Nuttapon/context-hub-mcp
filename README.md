@@ -59,6 +59,15 @@ team edits .context/*.md
 npx context-hub-mcp init
 ```
 
+When run in a terminal, `init` continues with an interactive setup flow that can:
+
+- build the local index
+- ask which MCP client you want to use with an interactive terminal menu
+- write `./context-hub.mcp.json`
+- tell you what to paste into your client config next
+
+In non-interactive environments, `init` only scaffolds files and exits.
+
 This scaffolds:
 
 - `.context/schema.md`
@@ -70,17 +79,23 @@ This scaffolds:
 
 ### 2. Build the local index
 
+If you skipped the interactive flow, run:
+
 ```bash
 npx context-hub-mcp reindex
 ```
 
 ### 3. Generate MCP client config
 
+If you skipped the interactive flow, run:
+
 ```bash
 npx context-hub-mcp config --target claude-code --cwd /absolute/path/to/project
 ```
 
 This prints ready-to-paste JSON for the selected MCP client. Use `--out <path>` if you want to write it to a file.
+
+When you use the interactive `init` flow, this step is handled for you by writing `./context-hub.mcp.json`.
 
 ### 4. Point your MCP client at it
 
@@ -89,6 +104,28 @@ Paste the generated JSON into your MCP client config.
 ### 5. Run the MCP server
 
 Once the client is configured, it will launch the server with `npx context-hub-mcp serve`.
+
+## Typical Use
+
+What you usually run depends on whether this is the first setup or normal day-to-day use.
+
+### First-time setup for a project
+
+```bash
+npx context-hub-mcp init
+npx context-hub-mcp reindex
+npx context-hub-mcp config --target claude-code --cwd /absolute/path/to/project
+```
+
+Then paste the generated JSON into your MCP client config.
+
+### Normal day-to-day use
+
+- edit `.context/*.md`
+- run `npx context-hub-mcp reindex` if needed
+- use your AI client normally
+
+You do not usually run `serve` yourself. Your MCP client starts `serve` when it needs the tools.
 
 ## Generated Structure
 
@@ -117,6 +154,13 @@ Suggested directory meanings:
 ### `init`
 
 Scaffold a `.context/` workspace.
+
+When run in a TTY, `init` can continue into an interactive onboarding flow that:
+
+- reindexes the workspace
+- lets you choose an MCP client target
+- writes `./context-hub.mcp.json`
+- reminds you that the AI client will invoke `serve` for you
 
 ```bash
 npx context-hub-mcp init
@@ -193,6 +237,8 @@ Run the MCP server over local stdio.
 ```bash
 npx context-hub-mcp serve
 ```
+
+Most users do not need to run this command manually. Claude Code, Copilot, and other MCP clients call `serve` from the generated config when they need it.
 
 Useful flags:
 
@@ -323,6 +369,8 @@ To change the MCP server name:
 npx context-hub-mcp config --target claude-code --cwd /absolute/path/to/project --name docs-hub
 ```
 
+After this config is added, Claude Code will invoke `serve` for you. You do not need a separate long-running terminal for Context Hub.
+
 ## GitHub Copilot Setup
 
 Generate config:
@@ -352,6 +400,8 @@ Example output:
 ```
 
 This server is tool-focused, which maps well to Copilot's MCP usage model.
+
+After this config is added, Copilot will invoke `serve` for you when needed.
 
 ## Architecture
 
@@ -438,6 +488,7 @@ Check:
 - the client is using local stdio MCP, not HTTP
 - the command is `npx ... serve`
 - the `--cwd` path points to the project with `.context/`
+- the project has been indexed with `reindex` at least once
 
 ## Limitations
 

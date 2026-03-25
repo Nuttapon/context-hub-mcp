@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 
 import matter from "gray-matter";
-import { glob } from "glob";
+import { glob } from "tinyglobby";
 import { z } from "zod";
 
 import type { ContextDocument, ConfidenceLevel, ContextHubConfig, ScanResult } from "./types.js";
@@ -52,8 +52,7 @@ export async function scanContextDocuments(config: ContextHubConfig): Promise<Sc
   const relativePaths = await glob(config.includeGlobs, {
     cwd: config.contextDir,
     ignore: config.excludeGlobs,
-    nodir: true,
-    windowsPathsNoEscape: true,
+    onlyFiles: true,
   });
 
   const documents: ContextDocument[] = [];

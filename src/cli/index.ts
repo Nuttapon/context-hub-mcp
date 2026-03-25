@@ -9,6 +9,7 @@ import { Command } from "commander";
 import { loadConfig } from "../core/config.js";
 import { runDoctor } from "../core/doctor.js";
 import { isSupportedMcpTarget, renderMcpConfig, stringifyMcpConfig, supportedMcpTargets } from "../core/mcp-config.js";
+import { runInitOnboarding, writeGeneratedConfigFile } from "./onboarding.js";
 import { initWorkspace } from "../core/scaffold.js";
 import { openContextStore } from "../core/store.js";
 import { startStdioServer } from "../transports/stdio/server.js";
@@ -69,6 +70,36 @@ applyCommonOptions(program.command("init").description("Scaffold a .context work
     const result = await initWorkspace(cwd);
 
     process.stdout.write(`${result.message}\n`);
+
+    if (!process.stdin.isTTY || !process.stdout.isTTY) {
+      return;
+    }
+
+    const onboarding = await runInitOnboarding(cwd);
+
+    if (!onboarding.shouldRunReindex || !onboarding.target) {
+      process.stdout.write("\nSetup skipped. You can run `reindex` and `config` later.\n");
+      return;
+    }
+
+    const config = await resolveConfig({ cwd });
+    const store = await openContextStore(config, { reindexOnOpen: false });
+
+    try {
+      const report = await store.reindex();
+      process.stdout.write(
+        `\nIndexed ${report.indexedCount} document(s). Parse errors: ${report.errors.length}.\n`,
+      );
+    } finally {
+      await store.close();
+    }
+
+    const configContents = stringifyMcpConfig(renderMcpConfig(onboarding.target, cwd));
+    const outputPath = await writeGeneratedConfigFile(cwd, configContents);
+
+    process.stdout.write(`\nGenerated ${outputPath}\n`);
+    process.stdout.write("Paste this into your client config.\n");
+    process.stdout.write("You do not need to run serve manually.\n");
   },
 );
 
