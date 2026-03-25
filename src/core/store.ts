@@ -219,11 +219,17 @@ export class ContextStore {
   }
 
   async get(documentPath: string): Promise<ContextDocument | null> {
+    const resolvedPath = this.resolveDocumentPath(documentPath);
+
+    if (!resolvedPath) {
+      return null;
+    }
+
     const row = this.#db
       .prepare(
         "SELECT path, title, domain, tags, confidence, content, last_verified FROM documents WHERE path = ?",
       )
-      .get(documentPath) as Record<string, unknown> | undefined;
+      .get(resolvedPath) as Record<string, unknown> | undefined;
 
     return row ? mapDocumentRow(row) : null;
   }
@@ -265,34 +271,38 @@ export class ContextStore {
   }
 
   async annotate(documentPath: string, note: string, author = "agent"): Promise<void> {
-    this.assertDocumentExists(documentPath);
+    const resolvedPath = this.assertDocumentExists(documentPath);
     this.#db
       .prepare(
         "INSERT INTO annotations (document_path, note, author, created_at) VALUES (?, ?, ?, ?)",
       )
-      .run(documentPath, note, author, new Date().toISOString());
+      .run(resolvedPath, note, author, new Date().toISOString());
   }
 
   async rate(documentPath: string, helpful: boolean, context?: string): Promise<void> {
-    this.assertDocumentExists(documentPath);
+    const resolvedPath = this.assertDocumentExists(documentPath);
     this.#db
       .prepare(
         "INSERT INTO feedback (document_path, helpful, context, created_at) VALUES (?, ?, ?, ?)",
       )
-      .run(documentPath, helpful ? 1 : 0, context ?? null, new Date().toISOString());
+      .run(resolvedPath, helpful ? 1 : 0, context ?? null, new Date().toISOString());
   }
 
   async listAnnotations(documentPath?: string): Promise<Annotation[]> {
+    const resolvedPath =
+      documentPath !== undefined ? this.resolveDocumentPath(documentPath) : undefined;
     const rows = (
       documentPath !== undefined
-        ? this.#db
-            .prepare(
-              `SELECT document_path, note, author, created_at
-               FROM annotations
-               WHERE document_path = ?
-               ORDER BY created_at DESC`,
-            )
-            .all(documentPath)
+        ? resolvedPath === null
+          ? []
+          : this.#db
+              .prepare(
+                `SELECT document_path, note, author, created_at
+                 FROM annotations
+                 WHERE document_path = ?
+                 ORDER BY created_at DESC`,
+              )
+              .all(resolvedPath)
         : this.#db
             .prepare(
               `SELECT document_path, note, author, created_at
@@ -310,14 +320,46 @@ export class ContextStore {
     }));
   }
 
-  private assertDocumentExists(documentPath: string): void {
-    const row = this.#db
-      .prepare("SELECT 1 FROM documents WHERE path = ? LIMIT 1")
-      .get(documentPath);
+  private resolveDocumentPath(documentPath: string): string | null {
+    const exactRow = this.#db
+      .prepare("SELECT path, domain FROM documents WHERE path = ? LIMIT 1")
+      .get(documentPath) as Record<string, unknown> | undefined;
 
-    if (!row) {
+    if (exactRow) {
+      return String(exactRow.path);
+    }
+
+    const separatorIndex = documentPath.indexOf("/");
+    if (separatorIndex === -1) {
+      return null;
+    }
+
+    const requestedDomain = documentPath.slice(0, separatorIndex);
+    const candidatePath = documentPath.slice(separatorIndex + 1);
+
+    if (!candidatePath) {
+      return null;
+    }
+
+    const aliasedRow = this.#db
+      .prepare("SELECT path, domain FROM documents WHERE path = ? LIMIT 1")
+      .get(candidatePath) as Record<string, unknown> | undefined;
+
+    if (aliasedRow && String(aliasedRow.domain) === requestedDomain) {
+      return String(aliasedRow.path);
+    }
+
+    return null;
+  }
+
+  private assertDocumentExists(documentPath: string): string {
+    const resolvedPath = this.resolveDocumentPath(documentPath);
+
+    if (!resolvedPath) {
       throw new Error(`Document not found: ${documentPath}`);
     }
+
+    return resolvedPath;
   }
 }
 

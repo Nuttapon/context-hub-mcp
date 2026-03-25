@@ -19,6 +19,16 @@ describe("MCP stdio server", () => {
 
     await writeContextFile(
       workspace,
+      "schema.md",
+      `${sampleFrontmatter({ title: "Schema", domain: "meta" })}
+# Schema
+
+Context authoring rules live here.
+`,
+    );
+
+    await writeContextFile(
+      workspace,
       "domains/payments.md",
       `${sampleFrontmatter({ title: "Payments" })}
 # Payments
@@ -92,6 +102,16 @@ LINE Pay requires amount conversion.
           ]),
         }),
       );
+
+      const metaAlias = (await client.callTool({
+        name: "get_context",
+        arguments: {
+          path: "meta/schema.md",
+        },
+      })) as { content: Array<{ type: string; text?: string }>; isError?: boolean };
+
+      expect(metaAlias.isError).not.toBe(true);
+      expect((metaAlias.content[0] as { text?: string }).text).toMatch(/Path: schema\.md/);
     } finally {
       await client.close();
       await transport.close();

@@ -1,6 +1,6 @@
 {
   "name": "context-hub-mcp",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Opinionated .context-first MCP server for local knowledge retrieval via stdio.",
   "license": "MIT",
   "type": "module",
