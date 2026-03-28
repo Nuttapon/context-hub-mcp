@@ -11,6 +11,7 @@ import { PACKAGE_VERSION } from "../version.js";
 import { runDoctor } from "../core/doctor.js";
 import { isSupportedMcpTarget, renderMcpConfig, stringifyMcpConfig, supportedMcpTargets } from "../core/mcp-config.js";
 import { runInitOnboarding } from "./onboarding.js";
+import { runAddCommand } from "./add.js";
 import { initWorkspace } from "../core/scaffold.js";
 import { openContextStore } from "../core/store.js";
 import { startStdioServer } from "../transports/stdio/server.js";
@@ -193,6 +194,44 @@ program
 
     process.stdout.write(rendered);
   });
+
+type AddCommandOptions = CommonOptions & {
+  domain?: string;
+  title?: string;
+  tags?: string;
+  confidence?: string;
+  template?: string;
+  edit?: boolean;
+};
+
+applyCommonOptions(
+  program
+    .command("add [file]")
+    .description("Create a new context document with proper frontmatter")
+    .option("--domain <name>", "Domain name")
+    .option("--title <title>", "Document title")
+    .option("--tags <csv>", "Comma-separated tags")
+    .option("--confidence <level>", "Confidence level: high, medium, or low")
+    .option("--template <name>", "Template: domain, integration, or pitfall")
+    .option("--no-edit", "Do not open $EDITOR after creation"),
+).action(async (file: string | undefined, options: AddCommandOptions) => {
+  const config = await resolveConfig(options);
+  const store = await openContextStore(config, { reindexOnOpen: false });
+
+  try {
+    const addOptions: import("./add.js").AddOptions = { contextDir: config.contextDir, store };
+    if (options.domain !== undefined) addOptions.domain = options.domain;
+    if (options.title !== undefined) addOptions.title = options.title;
+    if (options.tags !== undefined) addOptions.tags = options.tags;
+    if (options.confidence !== undefined) addOptions.confidence = options.confidence;
+    if (options.template !== undefined) addOptions.template = options.template;
+    if (options.edit !== undefined) addOptions.edit = options.edit;
+    if (file !== undefined) addOptions.filePath = file;
+    await runAddCommand(addOptions);
+  } finally {
+    await store.close();
+  }
+});
 
 program.parseAsync(process.argv).catch(error => {
   process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);

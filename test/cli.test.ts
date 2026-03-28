@@ -1,4 +1,4 @@
-import { access, readFile } from "node:fs/promises";
+import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
 
@@ -206,5 +206,99 @@ describe("CLI", () => {
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain("claude-code");
     expect(result.stdout).toContain("copilot");
+  });
+});
+
+describe("CLI > add", () => {
+  test("creates a file with correct frontmatter using flags", async () => {
+    const workspace = await createTempWorkspace();
+    workspaces.push(workspace);
+
+    const result = await runCli(
+      [
+        "add",
+        "--cwd",
+        workspace,
+        "--domain",
+        "auth",
+        "--title",
+        "Test Auth Doc",
+        "--tags",
+        "auth,security",
+        "--confidence",
+        "high",
+        "--template",
+        "domain",
+        "--no-edit",
+      ],
+      workspace,
+    );
+
+    expect(result.exitCode).toBe(0);
+
+    const filePath = path.join(workspace, ".context", "auth", "test-auth-doc.md");
+    const content = await readFile(filePath, "utf8");
+    expect(content).toContain("title: Test Auth Doc");
+    expect(content).toContain("domain: auth");
+    expect(content).toContain("auth");
+    expect(content).toContain("confidence: high");
+    expect(content).toContain("## Overview");
+  });
+
+  test("creates a pitfall template file", async () => {
+    const workspace = await createTempWorkspace();
+    workspaces.push(workspace);
+
+    const result = await runCli(
+      [
+        "add",
+        "--cwd",
+        workspace,
+        "--domain",
+        "payments",
+        "--title",
+        "Double Charge",
+        "--template",
+        "pitfall",
+        "--no-edit",
+      ],
+      workspace,
+    );
+
+    expect(result.exitCode).toBe(0);
+
+    const filePath = path.join(workspace, ".context", "payments", "double-charge.md");
+    const content = await readFile(filePath, "utf8");
+    expect(content).toContain("## Problem");
+    expect(content).toContain("## Solution");
+  });
+
+  test("rejects if file already exists", async () => {
+    const workspace = await createTempWorkspace();
+    workspaces.push(workspace);
+
+    // Create the file first
+    await mkdir(path.join(workspace, ".context", "auth"), { recursive: true });
+    await writeFile(
+      path.join(workspace, ".context", "auth", "existing.md"),
+      "---\ntitle: Existing\ndomain: auth\ntags: []\nconfidence: medium\n---\n# Existing\n",
+      "utf8",
+    );
+
+    const result = await runCli(
+      [
+        "add",
+        "--cwd",
+        workspace,
+        "--domain",
+        "auth",
+        "--title",
+        "Existing",
+        "--no-edit",
+      ],
+      workspace,
+    );
+
+    expect(result.exitCode).not.toBe(0);
   });
 });
