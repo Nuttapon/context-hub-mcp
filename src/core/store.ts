@@ -13,6 +13,7 @@ import type {
   ReindexReport,
   SearchOptions,
   SearchResult,
+  TagCount,
 } from "./types.js";
 
 interface OpenStoreOptions {
@@ -189,35 +190,85 @@ export class ContextStore {
     const normalizedQuery = normalizeSearchQuery(query);
     const limit = options.limit ?? 10;
 
-    const rows = (
-      options.domain !== undefined
-        ? this.#db
-            .prepare(
-              `SELECT d.path, d.title, d.domain, d.tags, d.confidence, d.content, d.last_verified,
-                      snippet(documents_fts, 1, '[', ']', '...', 20) AS snippet
-               FROM documents_fts
-               JOIN documents d ON d.id = documents_fts.rowid
-               WHERE documents_fts MATCH ? AND d.domain = ?
-               ORDER BY rank
-               LIMIT ?`,
-            )
-            .all(normalizedQuery, options.domain, limit)
-        : this.#db
-            .prepare(
-              `SELECT d.path, d.title, d.domain, d.tags, d.confidence, d.content, d.last_verified,
-                      snippet(documents_fts, 1, '[', ']', '...', 20) AS snippet
-               FROM documents_fts
-               JOIN documents d ON d.id = documents_fts.rowid
-               WHERE documents_fts MATCH ?
-               ORDER BY rank
-               LIMIT ?`,
-            )
-            .all(normalizedQuery, limit)
-    ) as Array<Record<string, unknown>>;
+    const confidenceRank = `CASE d.confidence WHEN 'high' THEN 3 WHEN 'medium' THEN 2 WHEN 'low' THEN 1 ELSE 2 END`;
+    const minConfidenceValue =
+      options.confidence === "high" ? 3 : options.confidence === "medium" ? 2 : 1;
+
+    const whereClauses: string[] = ["documents_fts MATCH ?"];
+    const params: unknown[] = [normalizedQuery];
+
+    if (options.domain !== undefined) {
+      whereClauses.push("d.domain = ?");
+      params.push(options.domain);
+    }
+
+    if (options.confidence !== undefined) {
+      whereClauses.push(`(${confidenceRank}) >= ?`);
+      params.push(minConfidenceValue);
+    }
+
+    if (options.verified_after !== undefined) {
+      whereClauses.push("d.last_verified > ?");
+      params.push(options.verified_after);
+    }
+
+    if (options.verified_before !== undefined) {
+      whereClauses.push("d.last_verified < ?");
+      params.push(options.verified_before);
+    }
+
+    if (options.tags !== undefined && options.tags.length > 0) {
+      const tagClauses = options.tags.map(() => `d.tags LIKE ?`).join(" OR ");
+      whereClauses.push(`(${tagClauses})`);
+      for (const tag of options.tags) {
+        params.push(`%"${tag}"%`);
+      }
+    }
+
+    params.push(limit);
+
+    const sql = `SELECT d.path, d.title, d.domain, d.tags, d.confidence, d.content, d.last_verified,
+                        snippet(documents_fts, 1, '[', ']', '...', 20) AS snippet
+                 FROM documents_fts
+                 JOIN documents d ON d.id = documents_fts.rowid
+                 WHERE ${whereClauses.join(" AND ")}
+                 ORDER BY rank
+                 LIMIT ?`;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rows = (this.#db.prepare(sql) as any).all(...params) as Array<Record<string, unknown>>;
 
     return rows.map(row => ({
       ...mapDocumentRow(row),
       snippet: String(row.snippet),
+    }));
+  }
+
+  async listTags(domain?: string): Promise<TagCount[]> {
+    const rows = (
+      domain !== undefined
+        ? this.#db
+            .prepare(
+              `SELECT value AS tag, COUNT(*) AS count
+               FROM documents, json_each(documents.tags)
+               WHERE domain = ?
+               GROUP BY value
+               ORDER BY count DESC, value ASC`,
+            )
+            .all(domain)
+        : this.#db
+            .prepare(
+              `SELECT value AS tag, COUNT(*) AS count
+               FROM documents, json_each(documents.tags)
+               GROUP BY value
+               ORDER BY count DESC, value ASC`,
+            )
+            .all()
+    ) as Array<Record<string, unknown>>;
+
+    return rows.map(row => ({
+      tag: String(row.tag),
+      count: Number(row.count),
     }));
   }
 

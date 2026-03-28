@@ -47,6 +47,33 @@ export function registerTools(server: McpServer, store: ContextStore): void {
   );
 
   server.registerTool(
+    "list_tags",
+    {
+      description: "List all unique tags in the context hub with document counts, optionally filtered by domain.",
+      inputSchema: {
+        domain: z.string().min(1).optional(),
+      },
+    },
+    async args => {
+      try {
+        const tags = await store.listTags(
+          typeof args.domain === "string" ? args.domain : undefined,
+        );
+
+        if (tags.length === 0) {
+          return textResult("No tags found.");
+        }
+
+        return textResult(
+          `Tags:\n\n${tags.map(t => `- ${t.tag} (${t.count})`).join("\n")}`,
+        );
+      } catch (error) {
+        return errorResult(error instanceof Error ? error.message : String(error));
+      }
+    },
+  );
+
+  server.registerTool(
     "search_context",
     {
       description:
@@ -55,19 +82,22 @@ export function registerTools(server: McpServer, store: ContextStore): void {
         query: z.string().min(1),
         domain: z.string().min(1).optional(),
         limit: z.number().int().positive().max(50).optional(),
+        tags: z.array(z.string().min(1)).optional(),
+        confidence: z.enum(["high", "medium", "low"]).optional(),
+        verified_after: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+        verified_before: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
       },
     },
     async args => {
       try {
         const searchOptions: Parameters<ContextStore["search"]>[1] = {};
 
-        if (typeof args.domain === "string") {
-          searchOptions.domain = args.domain;
-        }
-
-        if (typeof args.limit === "number") {
-          searchOptions.limit = args.limit;
-        }
+        if (typeof args.domain === "string") searchOptions.domain = args.domain;
+        if (typeof args.limit === "number") searchOptions.limit = args.limit;
+        if (Array.isArray(args.tags) && args.tags.length > 0) searchOptions.tags = args.tags as string[];
+        if (typeof args.confidence === "string") searchOptions.confidence = args.confidence as "high" | "medium" | "low";
+        if (typeof args.verified_after === "string") searchOptions.verified_after = args.verified_after;
+        if (typeof args.verified_before === "string") searchOptions.verified_before = args.verified_before;
 
         const results = await store.search(String(args.query), searchOptions);
 

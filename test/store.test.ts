@@ -187,3 +187,189 @@ This document describes the LINE Pay integration flow.
     }
   });
 });
+
+describe("search() with metadata filters", () => {
+  test("filters by tag", async () => {
+    const workspace = await createTempWorkspace();
+    workspaces.push(workspace);
+
+    await writeContextFile(workspace, "domains/auth.md", `---
+title: Auth
+domain: auth
+tags: [auth, security]
+confidence: high
+last_verified: 2026-01-01
+---
+# Auth
+Authentication flow.
+`);
+    await writeContextFile(workspace, "domains/payments.md", `---
+title: Payments
+domain: payments
+tags: [payments]
+confidence: medium
+last_verified: 2026-01-01
+---
+# Payments
+Payment gateway.
+`);
+
+    const config = await loadConfig({ cwd: workspace });
+    const store = await openContextStore(config);
+
+    try {
+      const results = await store.search("Authentication", { tags: ["auth"] });
+      expect(results.every(r => r.tags.includes("auth"))).toBe(true);
+    } finally {
+      await store.close();
+    }
+  });
+
+  test("filters by confidence level (high only)", async () => {
+    const workspace = await createTempWorkspace();
+    workspaces.push(workspace);
+
+    await writeContextFile(workspace, "domains/high.md", `---
+title: High Doc
+domain: test
+tags: []
+confidence: high
+last_verified: 2026-01-01
+---
+# High
+High confidence content.
+`);
+    await writeContextFile(workspace, "domains/low.md", `---
+title: Low Doc
+domain: test
+tags: []
+confidence: low
+last_verified: 2026-01-01
+---
+# Low
+Low confidence content.
+`);
+
+    const config = await loadConfig({ cwd: workspace });
+    const store = await openContextStore(config);
+
+    try {
+      const all = await store.search("confidence content");
+      expect(all.length).toBeGreaterThanOrEqual(1);
+      const filtered = await store.search("confidence content", { confidence: "high" });
+      expect(filtered.every(r => r.confidence === "high")).toBe(true);
+    } finally {
+      await store.close();
+    }
+  });
+
+  test("filters by verified_after date", async () => {
+    const workspace = await createTempWorkspace();
+    workspaces.push(workspace);
+
+    await writeContextFile(workspace, "domains/old.md", `---
+title: Old Doc
+domain: test
+tags: []
+confidence: medium
+last_verified: 2020-01-01
+---
+# Old
+Old document content here.
+`);
+    await writeContextFile(workspace, "domains/new.md", `---
+title: New Doc
+domain: test
+tags: []
+confidence: medium
+last_verified: 2026-01-01
+---
+# New
+New document content here.
+`);
+
+    const config = await loadConfig({ cwd: workspace });
+    const store = await openContextStore(config);
+
+    try {
+      const results = await store.search("document content here", { verified_after: "2025-01-01" });
+      expect(results.every(r => r.lastVerified !== null && r.lastVerified > "2025-01-01")).toBe(true);
+    } finally {
+      await store.close();
+    }
+  });
+});
+
+describe("listTags()", () => {
+  test("returns tags with counts sorted by count desc", async () => {
+    const workspace = await createTempWorkspace();
+    workspaces.push(workspace);
+
+    await writeContextFile(workspace, "domains/a.md", `---
+title: A
+domain: test
+tags: [auth, security]
+confidence: high
+last_verified: 2026-01-01
+---
+# A doc
+`);
+    await writeContextFile(workspace, "domains/b.md", `---
+title: B
+domain: test
+tags: [auth]
+confidence: high
+last_verified: 2026-01-01
+---
+# B doc
+`);
+
+    const config = await loadConfig({ cwd: workspace });
+    const store = await openContextStore(config);
+
+    try {
+      const tags = await store.listTags();
+      const authTag = tags.find(t => t.tag === "auth");
+      expect(authTag).toEqual({ tag: "auth", count: 2 });
+      const secTag = tags.find(t => t.tag === "security");
+      expect(secTag).toEqual({ tag: "security", count: 1 });
+    } finally {
+      await store.close();
+    }
+  });
+
+  test("filters listTags() by domain", async () => {
+    const workspace = await createTempWorkspace();
+    workspaces.push(workspace);
+
+    await writeContextFile(workspace, "auth/a.md", `---
+title: A
+domain: auth
+tags: [auth-tag]
+confidence: high
+last_verified: 2026-01-01
+---
+# A
+`);
+    await writeContextFile(workspace, "payments/b.md", `---
+title: B
+domain: payments
+tags: [payments-tag]
+confidence: high
+last_verified: 2026-01-01
+---
+# B
+`);
+
+    const config = await loadConfig({ cwd: workspace });
+    const store = await openContextStore(config);
+
+    try {
+      const tags = await store.listTags("auth");
+      expect(tags.some(t => t.tag === "auth-tag")).toBe(true);
+      expect(tags.every(t => t.tag !== "payments-tag")).toBe(true);
+    } finally {
+      await store.close();
+    }
+  });
+});

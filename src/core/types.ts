@@ -23,6 +23,15 @@ export interface ScanResult {
 export interface SearchOptions {
   domain?: string;
   limit?: number;
+  tags?: string[];
+  confidence?: ConfidenceLevel;
+  verified_after?: string;
+  verified_before?: string;
+}
+
+export interface TagCount {
+  tag: string;
+  count: number;
 }
 
 export interface SearchResult extends ContextDocument {
