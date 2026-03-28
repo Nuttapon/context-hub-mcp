@@ -60,9 +60,17 @@ stateDiagram-v2
 ```
 ````
 
-Fields: `title`, `domain`, `tags`, `last_verified`, `confidence` (`high` / `medium` / `low`)
+Fields: `title`, `domain`, `tags`, `last_verified`, `confidence` (`high` / `medium` / `low`), `related` (optional list of related doc paths)
 
 Use `Key Files` sections for source references and state machine headings so structured parsing picks them up.
+
+The `related` field accepts paths relative to `.context/`:
+
+```yaml
+related:
+  - integrations/stripe-webhooks.md
+  - pitfalls/payment-idempotency.md
+```
 
 ## Importing Docs with Claude Code
 
@@ -82,17 +90,47 @@ Claude will fetch the source, distill the relevant knowledge, pick the right sub
 | `list_domains` | Discover available knowledge areas |
 | `search_context` | Full-text search across indexed documents |
 | `get_context` | Read a specific document |
-| `get_context_structured` | Read a document as structured data (keyFiles, stateMachines, pitfalls, sections) |
+| `get_context_structured` | Read a document as structured data (keyFiles, stateMachines, pitfalls, sections, related) |
 | `get_pitfalls` | List pitfalls, optionally filtered by domain |
+| `list_tags` | List all unique tags with document counts; optional `domain` filter |
+| `get_stale_docs` | List documents with old or missing `last_verified`, or `confidence: low` |
+| `get_related` | Return documents related to a given path (bidirectional, depth 1 or 2) |
 | `annotate_context` | Leave a note on outdated or missing docs |
 | `rate_context` | Mark whether a document was helpful |
 | `list_annotations` | Review accumulated annotations |
 | `reindex_context` | Force a fresh index rebuild |
 
+### search_context — filtering params
+
+In addition to a `query` string, `search_context` accepts optional filters:
+
+| Param | Type | Description |
+|---|---|---|
+| `tags` | `string[]` | OR-match: return docs that have any of the listed tags |
+| `confidence` | `string` | Minimum confidence level (`low`, `medium`, `high`) |
+| `verified_after` | `string` | Only docs with `last_verified` on or after this date (`YYYY-MM-DD`) |
+| `verified_before` | `string` | Only docs with `last_verified` on or before this date (`YYYY-MM-DD`) |
+
+### get_stale_docs — params
+
+| Param | Type | Default | Description |
+|---|---|---|---|
+| `domain` | `string` | — | Limit to a specific domain |
+| `days_threshold` | `number` | `90` | Docs not verified within this many days are considered stale |
+| `limit` | `number` | — | Cap the number of results |
+
+### get_related — params
+
+| Param | Type | Description |
+|---|---|---|
+| `path` | `string` | Path of the source document (relative to `.context/`) |
+| `depth` | `1 \| 2` | `1` returns directly linked docs; `2` also follows their links |
+
 ## CLI
 
 ```bash
 npx context-hub-mcp init       # scaffold .context/ workspace
+npx context-hub-mcp add        # create a new context document with frontmatter
 npx context-hub-mcp reindex    # rebuild the local SQLite index
 npx context-hub-mcp doctor     # inspect workspace health
 npx context-hub-mcp config     # generate MCP client config JSON
@@ -100,6 +138,23 @@ npx context-hub-mcp serve      # run the MCP server (usually invoked by the clie
 ```
 
 Run any command with `--help` for available flags.
+
+### add — flags
+
+```bash
+npx context-hub-mcp add [--domain <name>] [--title <title>] [--tags <a,b>] \
+  [--confidence high|medium|low] [--template domain|integration|pitfall] \
+  [--no-edit]
+```
+
+| Flag | Description |
+|---|---|
+| `--domain` | Domain subfolder to place the file in (e.g. `payments`) |
+| `--title` | Document title (used for the filename and frontmatter) |
+| `--tags` | Comma-separated list of tags |
+| `--confidence` | Initial confidence level; defaults to `medium` |
+| `--template` | Starter template: `domain`, `integration`, or `pitfall` |
+| `--no-edit` | Skip opening the file in `$EDITOR` after creation |
 
 ## Client Setup
 
