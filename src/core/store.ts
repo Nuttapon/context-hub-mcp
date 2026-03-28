@@ -353,20 +353,22 @@ export class ContextStore {
 
     const getDirectRelated = (sourcePaths: string[], excludePaths: string[]): RelatedDoc[] => {
       if (sourcePaths.length === 0) return [];
-      const srcPlaceholders = sourcePaths.map(() => "?").join(", ");
-      const excPlaceholders = excludePaths.map(() => "?").join(", ");
 
-      const sql = `SELECT DISTINCT d.path, d.title, d.domain, d.confidence
-           FROM documents d
-           WHERE d.path IN (
-             SELECT target_path FROM relationships WHERE source_path IN (${srcPlaceholders})
-             UNION
-             SELECT source_path FROM relationships WHERE target_path IN (${srcPlaceholders})
-           ) AND d.path NOT IN (${excPlaceholders})`;
+      const sql = `
+        WITH src(p) AS (SELECT value FROM json_each(?))
+        SELECT DISTINCT d.path, d.title, d.domain, d.confidence
+        FROM documents d
+        WHERE d.path IN (
+          SELECT target_path FROM relationships WHERE source_path IN (SELECT p FROM src)
+          UNION
+          SELECT source_path FROM relationships WHERE target_path IN (SELECT p FROM src)
+        ) AND d.path NOT IN (SELECT value FROM json_each(?))`;
 
       const stmt = this.#db.prepare(sql);
-      const params = [...sourcePaths, ...sourcePaths, ...excludePaths];
-      const rows = stmt.all(...(params as Parameters<typeof stmt.all>)) as Array<Record<string, unknown>>;
+      const rows = stmt.all(
+        JSON.stringify(sourcePaths),
+        JSON.stringify(excludePaths),
+      ) as Array<Record<string, unknown>>;
 
       return rows.map(row => ({
         path: String(row.path),

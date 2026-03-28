@@ -653,6 +653,9 @@ last_verified: 2026-01-01
       expect(related.some(r => r.path === "auth/tokens.md")).toBe(true);
       // source doc itself should not appear
       expect(related.every(r => r.path !== "auth/flow.md")).toBe(true);
+      // depth-1 docs should not be duplicated in combined results
+      const paths = related.map(r => r.path);
+      expect(paths.filter(p => p === "auth/session.md")).toHaveLength(1);
     } finally {
       await store.close();
     }
