@@ -26,7 +26,10 @@ function normalizeSearchQuery(query: string): string {
     throw new Error("Search query must contain letters or numbers");
   }
 
-  return normalized;
+  return normalized
+    .split(/\s+/)
+    .map(term => `"${term}"`)
+    .join(" ");
 }
 
 function decodeTags(tags: string): string[] {
@@ -297,7 +300,7 @@ export class ContextStore {
           ? []
           : this.#db
               .prepare(
-                `SELECT document_path, note, author, created_at
+                `SELECT id, document_path, note, author, created_at
                  FROM annotations
                  WHERE document_path = ?
                  ORDER BY created_at DESC`,
@@ -305,7 +308,7 @@ export class ContextStore {
               .all(resolvedPath)
         : this.#db
             .prepare(
-              `SELECT document_path, note, author, created_at
+              `SELECT id, document_path, note, author, created_at
                FROM annotations
                ORDER BY created_at DESC`,
             )
@@ -313,11 +316,24 @@ export class ContextStore {
     ) as Array<Record<string, unknown>>;
 
     return rows.map(row => ({
+      id: Number(row.id),
       documentPath: String(row.document_path),
       note: String(row.note),
       author: String(row.author),
       createdAt: String(row.created_at),
     }));
+  }
+
+  async deleteAnnotation(id: number): Promise<void> {
+    const row = this.#db
+      .prepare("SELECT id FROM annotations WHERE id = ?")
+      .get(id) as Record<string, unknown> | undefined;
+
+    if (!row) {
+      throw new Error(`Annotation not found: ${id}`);
+    }
+
+    this.#db.prepare("DELETE FROM annotations WHERE id = ?").run(id);
   }
 
   private resolveDocumentPath(documentPath: string): string | null {

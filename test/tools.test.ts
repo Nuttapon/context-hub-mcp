@@ -157,4 +157,125 @@ LINE Pay integration guide.
     expect(result.isError).toBeUndefined();
     expect(result.content[0]?.text).toMatch(/payments/i);
   });
+
+  test("get_context returns errorResult when store throws", async () => {
+    const workspace = await createTempWorkspace();
+    workspaces.push(workspace);
+    const store = await setupStore(workspace);
+    await store.close();
+    stores.pop();
+
+    const server = new McpServer({ name: "test", version: "0.0.1" });
+    registerTools(server, store);
+
+    const handler = getRegisteredHandler(server, "get_context");
+    const result = await handler({ path: "anything.md" }) as { isError?: boolean; content: Array<{ text: string }> };
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0]?.text).toBeTruthy();
+  });
+
+  test("get_context_structured returns errorResult when store throws", async () => {
+    const workspace = await createTempWorkspace();
+    workspaces.push(workspace);
+    const store = await setupStore(workspace);
+    await store.close();
+    stores.pop();
+
+    const server = new McpServer({ name: "test", version: "0.0.1" });
+    registerTools(server, store);
+
+    const handler = getRegisteredHandler(server, "get_context_structured");
+    const result = await handler({ path: "anything.md" }) as { isError?: boolean; content: Array<{ text: string }> };
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0]?.text).toBeTruthy();
+  });
+
+  test("search_context returns errorResult for symbol-only queries", async () => {
+    const workspace = await createTempWorkspace();
+    workspaces.push(workspace);
+    const store = await setupStore(workspace);
+    await store.reindex();
+
+    const server = new McpServer({ name: "test", version: "0.0.1" });
+    registerTools(server, store);
+
+    const handler = getRegisteredHandler(server, "search_context");
+    const result = await handler({ query: "---" }) as { isError?: boolean; content: Array<{ text: string }> };
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0]?.text).toMatch(/must contain letters or numbers/i);
+  });
+
+  test("search_context handles multi-word queries", async () => {
+    const workspace = await createTempWorkspace();
+    workspaces.push(workspace);
+
+    await writeContextFile(
+      workspace,
+      "domains/auth.md",
+      `${sampleFrontmatter({ title: "Authentication Flow", domain: "auth" })}
+# Authentication Flow
+
+OAuth token refresh logic for LINE login.
+`,
+    );
+
+    const store = await setupStore(workspace);
+    await store.reindex();
+
+    const server = new McpServer({ name: "test", version: "0.0.1" });
+    registerTools(server, store);
+
+    const handler = getRegisteredHandler(server, "search_context");
+    const result = await handler({ query: "OAuth token refresh" }) as { isError?: boolean; content: Array<{ text: string }> };
+
+    expect(result.isError).toBeUndefined();
+    expect(result.content[0]?.text).toMatch(/authentication/i);
+  });
+
+  test("delete_annotation tool deletes annotation and rejects unknown ID", async () => {
+    const workspace = await createTempWorkspace();
+    workspaces.push(workspace);
+
+    await writeContextFile(
+      workspace,
+      "domains/payments.md",
+      `${sampleFrontmatter({ title: "Payments" })}
+# Payments
+`,
+    );
+
+    const store = await setupStore(workspace);
+    await store.reindex();
+
+    const server = new McpServer({ name: "test", version: "0.0.1" });
+    registerTools(server, store);
+
+    // Create an annotation first
+    const annotateHandler = getRegisteredHandler(server, "annotate_context");
+    await annotateHandler({ path: "domains/payments.md", note: "test note" });
+
+    // List to get the ID
+    const listHandler = getRegisteredHandler(server, "list_annotations");
+    const listResult = await listHandler({}) as { content: Array<{ text: string }> };
+    const idMatch = listResult.content[0]?.text.match(/\[(\d+)\]/);
+    expect(idMatch).toBeTruthy();
+    const annotationId = Number(idMatch![1]);
+
+    // Delete it
+    const deleteHandler = getRegisteredHandler(server, "delete_annotation");
+    const deleteResult = await deleteHandler({ id: annotationId }) as { isError?: boolean; content: Array<{ text: string }> };
+    expect(deleteResult.isError).toBeUndefined();
+    expect(deleteResult.content[0]?.text).toMatch(/deleted/i);
+
+    // Verify it's gone
+    const listAfter = await listHandler({}) as { content: Array<{ text: string }> };
+    expect(listAfter.content[0]?.text).toMatch(/no annotations/i);
+
+    // Delete non-existent
+    const badDelete = await deleteHandler({ id: 99999 }) as { isError?: boolean };
+    expect(badDelete.isError).toBe(true);
+  });
 });

@@ -30,6 +30,7 @@ export interface SearchResult extends ContextDocument {
 }
 
 export interface Annotation {
+  id: number;
   documentPath: string;
   note: string;
   author: string;

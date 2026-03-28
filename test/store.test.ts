@@ -113,4 +113,77 @@ Never send subunits directly to line-pay.
       await store.close();
     }
   });
+
+  test("multi-word search returns results", async () => {
+    const workspace = await createTempWorkspace();
+    workspaces.push(workspace);
+
+    await writeContextFile(
+      workspace,
+      "domains/payments.md",
+      `${sampleFrontmatter({ title: "LINE Pay Integration" })}
+# LINE Pay Integration
+
+This document describes the LINE Pay integration flow.
+`,
+    );
+
+    const config = await loadConfig({ cwd: workspace });
+    const store = await openContextStore(config);
+
+    try {
+      const results = await store.search("LINE Pay integration");
+      expect(results.length).toBeGreaterThan(0);
+      expect(results[0]?.title).toBe("LINE Pay Integration");
+    } finally {
+      await store.close();
+    }
+  });
+
+  test("symbol-only search query throws meaningful error", async () => {
+    const workspace = await createTempWorkspace();
+    workspaces.push(workspace);
+
+    const config = await loadConfig({ cwd: workspace });
+    const store = await openContextStore(config, { reindexOnOpen: false });
+
+    try {
+      await expect(store.search("---")).rejects.toThrow(/must contain letters or numbers/i);
+      await expect(store.search("???")).rejects.toThrow(/must contain letters or numbers/i);
+      await expect(store.search("@#$")).rejects.toThrow(/must contain letters or numbers/i);
+    } finally {
+      await store.close();
+    }
+  });
+
+  test("deleteAnnotation removes an annotation and rejects unknown IDs", async () => {
+    const workspace = await createTempWorkspace();
+    workspaces.push(workspace);
+
+    await writeContextFile(
+      workspace,
+      "domains/payments.md",
+      `${sampleFrontmatter({ title: "Payments" })}
+# Payments
+`,
+    );
+
+    const config = await loadConfig({ cwd: workspace });
+    const store = await openContextStore(config);
+
+    try {
+      await store.annotate("domains/payments.md", "Needs examples");
+      const annotations = await store.listAnnotations("domains/payments.md");
+      expect(annotations).toHaveLength(1);
+      expect(annotations[0]?.id).toBeTypeOf("number");
+
+      await store.deleteAnnotation(annotations[0]!.id);
+      const afterDelete = await store.listAnnotations("domains/payments.md");
+      expect(afterDelete).toHaveLength(0);
+
+      await expect(store.deleteAnnotation(99999)).rejects.toThrow(/Annotation not found/i);
+    } finally {
+      await store.close();
+    }
+  });
 });

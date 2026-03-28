@@ -98,15 +98,19 @@ export function registerTools(server: McpServer, store: ContextStore): void {
       },
     },
     async args => {
-      const document = await store.get(String(args.path));
+      try {
+        const document = await store.get(String(args.path));
 
-      if (!document) {
-        return errorResult(`Document not found: ${String(args.path)}`);
+        if (!document) {
+          return errorResult(`Document not found: ${String(args.path)}`);
+        }
+
+        return textResult(
+          `# ${document.title}\n\nPath: ${document.path}\nDomain: ${document.domain}\nTags: ${document.tags.join(", ") || "(none)"}\nConfidence: ${document.confidence}\nLast verified: ${document.lastVerified ?? "n/a"}\n\n---\n\n${document.content}`,
+        );
+      } catch (error) {
+        return errorResult(error instanceof Error ? error.message : String(error));
       }
-
-      return textResult(
-        `# ${document.title}\n\nPath: ${document.path}\nDomain: ${document.domain}\nTags: ${document.tags.join(", ") || "(none)"}\nConfidence: ${document.confidence}\nLast verified: ${document.lastVerified ?? "n/a"}\n\n---\n\n${document.content}`,
-      );
     },
   );
 
@@ -121,27 +125,31 @@ export function registerTools(server: McpServer, store: ContextStore): void {
       },
     },
     async args => {
-      const document = await store.get(String(args.path));
+      try {
+        const document = await store.get(String(args.path));
 
-      if (!document) {
-        return errorResult(`Document not found: ${String(args.path)}`);
+        if (!document) {
+          return errorResult(`Document not found: ${String(args.path)}`);
+        }
+
+        const includePitfalls =
+          typeof args.include_related_pitfalls === "boolean" ? args.include_related_pitfalls : true;
+        const pitfalls = includePitfalls ? await store.getPitfalls(document.domain) : [];
+        const structured = buildStructuredDocument(document, pitfalls);
+        const structuredContent = structured as unknown as Record<string, unknown>;
+
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Structured context for ${document.path}: ${structured.keyFiles.length} key file(s), ${structured.stateMachines.length} state machine(s), ${structured.pitfalls.length} related pitfall(s).`,
+            },
+          ],
+          structuredContent,
+        };
+      } catch (error) {
+        return errorResult(error instanceof Error ? error.message : String(error));
       }
-
-      const includePitfalls =
-        typeof args.include_related_pitfalls === "boolean" ? args.include_related_pitfalls : true;
-      const pitfalls = includePitfalls ? await store.getPitfalls(document.domain) : [];
-      const structured = buildStructuredDocument(document, pitfalls);
-      const structuredContent = structured as unknown as Record<string, unknown>;
-
-      return {
-        content: [
-          {
-            type: "text" as const,
-            text: `Structured context for ${document.path}: ${structured.keyFiles.length} key file(s), ${structured.stateMachines.length} state machine(s), ${structured.pitfalls.length} related pitfall(s).`,
-          },
-        ],
-        structuredContent,
-      };
     },
   );
 
@@ -244,10 +252,28 @@ export function registerTools(server: McpServer, store: ContextStore): void {
           annotations
             .map(
               annotation =>
-                `**${annotation.documentPath}** — ${annotation.createdAt}\n${annotation.note}`,
+                `[${annotation.id}] **${annotation.documentPath}** — ${annotation.createdAt}\n${annotation.note}`,
             )
             .join("\n\n"),
         );
+      } catch (error) {
+        return errorResult(error instanceof Error ? error.message : String(error));
+      }
+    },
+  );
+
+  server.registerTool(
+    "delete_annotation",
+    {
+      description: "Delete an annotation by its ID.",
+      inputSchema: {
+        id: z.number().int().positive(),
+      },
+    },
+    async args => {
+      try {
+        await store.deleteAnnotation(Number(args.id));
+        return textResult(`Annotation ${Number(args.id)} deleted.`);
       } catch (error) {
         return errorResult(error instanceof Error ? error.message : String(error));
       }
