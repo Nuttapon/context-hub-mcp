@@ -122,21 +122,30 @@ export function registerTools(server: McpServer, store: ContextStore): void {
   server.registerTool(
     "get_context",
     {
-      description: "Read a full context document by its relative path.",
+      description:
+        "Read a full context document by its relative path (use 'path' or 'document' parameter).",
       inputSchema: {
-        path: z.string().min(1),
+        path: z.string().min(1).optional(),
+        document: z.string().min(1).optional(),
       },
     },
     async args => {
       try {
-        const document = await store.get(String(args.path));
+        const resolvedPath = (typeof args.path === "string" ? args.path : null) ??
+          (typeof args.document === "string" ? args.document : null);
 
-        if (!document) {
-          return errorResult(`Document not found: ${String(args.path)}`);
+        if (!resolvedPath) {
+          return errorResult("Missing required parameter: provide 'path' or 'document'.");
+        }
+
+        const doc = await store.get(resolvedPath);
+
+        if (!doc) {
+          return errorResult(`Document not found: ${resolvedPath}`);
         }
 
         return textResult(
-          `# ${document.title}\n\nPath: ${document.path}\nDomain: ${document.domain}\nTags: ${document.tags.join(", ") || "(none)"}\nConfidence: ${document.confidence}\nLast verified: ${document.lastVerified ?? "n/a"}\n\n---\n\n${document.content}`,
+          `# ${doc.title}\n\nPath: ${doc.path}\nDomain: ${doc.domain}\nTags: ${doc.tags.join(", ") || "(none)"}\nConfidence: ${doc.confidence}\nLast verified: ${doc.lastVerified ?? "n/a"}\n\n---\n\n${doc.content}`,
         );
       } catch (error) {
         return errorResult(error instanceof Error ? error.message : String(error));
@@ -148,18 +157,26 @@ export function registerTools(server: McpServer, store: ContextStore): void {
     "get_context_structured",
     {
       description:
-        "Read a context document as structured JSON-friendly data for agent chaining and downstream automation.",
+        "Read a context document as structured JSON-friendly data for agent chaining and downstream automation (use 'path' or 'document' parameter).",
       inputSchema: {
-        path: z.string().min(1),
+        path: z.string().min(1).optional(),
+        document: z.string().min(1).optional(),
         include_related_pitfalls: z.boolean().optional(),
       },
     },
     async args => {
       try {
-        const document = await store.get(String(args.path));
+        const resolvedPath = (typeof args.path === "string" ? args.path : null) ??
+          (typeof args.document === "string" ? args.document : null);
+
+        if (!resolvedPath) {
+          return errorResult("Missing required parameter: provide 'path' or 'document'.");
+        }
+
+        const document = await store.get(resolvedPath);
 
         if (!document) {
-          return errorResult(`Document not found: ${String(args.path)}`);
+          return errorResult(`Document not found: ${resolvedPath}`);
         }
 
         const includePitfalls =
