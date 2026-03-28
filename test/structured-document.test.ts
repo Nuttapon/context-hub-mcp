@@ -12,6 +12,7 @@ describe("buildStructuredDocument", () => {
         tags: ["payments"],
         confidence: "high",
         lastVerified: "2026-03-24",
+        related: [],
         content: `# Payments
 
 ## Key Files
@@ -35,6 +36,7 @@ stateDiagram-v2
           tags: ["pitfall"],
           confidence: "high",
           lastVerified: "2026-03-24",
+          related: [],
           content: "Convert subunits before API calls.",
         },
       ],

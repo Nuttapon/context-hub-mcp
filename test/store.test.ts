@@ -469,7 +469,7 @@ confidence: medium
       const noDateDoc = stale.find(d => d.path === "domains/no-date.md");
       expect(noDateDoc?.daysSinceVerified).toBeNull();
       // docs with null last_verified should sort first
-      expect(stale[0].daysSinceVerified).toBeNull();
+      expect(stale[0]!.daysSinceVerified).toBeNull();
     } finally {
       await store.close();
     }

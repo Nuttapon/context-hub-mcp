@@ -229,11 +229,11 @@ export function registerTools(server: McpServer, store: ContextStore): void {
     },
     async args => {
       try {
-        const docs = await store.getStaleDocs({
-          domain: typeof args.domain === "string" ? args.domain : undefined,
-          days_threshold: typeof args.days_threshold === "number" ? args.days_threshold : undefined,
-          limit: typeof args.limit === "number" ? args.limit : undefined,
-        });
+        const staleOptions: { domain?: string; days_threshold?: number; limit?: number } = {};
+        if (typeof args.domain === "string") staleOptions.domain = args.domain;
+        if (typeof args.days_threshold === "number") staleOptions.days_threshold = args.days_threshold;
+        if (typeof args.limit === "number") staleOptions.limit = args.limit;
+        const docs = await store.getStaleDocs(staleOptions);
 
         if (docs.length === 0) {
           return textResult("No stale documents found.");
