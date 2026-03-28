@@ -300,5 +300,6 @@ describe("CLI > add", () => {
     );
 
     expect(result.exitCode).not.toBe(0);
+    expect(result.stderr).toMatch(/already exists/i);
   });
 });
