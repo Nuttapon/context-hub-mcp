@@ -430,7 +430,7 @@ title: Fresh Doc
 domain: test
 tags: []
 confidence: high
-last_verified: 2026-03-28
+last_verified: ${new Date().toISOString().slice(0, 10)}
 ---
 # Fresh
 `);
@@ -484,7 +484,7 @@ title: Low Confidence
 domain: test
 tags: []
 confidence: low
-last_verified: 2026-03-28
+last_verified: ${new Date().toISOString().slice(0, 10)}
 ---
 # Low
 `);
