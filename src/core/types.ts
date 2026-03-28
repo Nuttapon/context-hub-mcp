@@ -8,6 +8,7 @@ export interface ContextDocument {
   confidence: ConfidenceLevel;
   content: string;
   lastVerified: string | null;
+  related: string[];
 }
 
 export interface IndexerError {
@@ -41,6 +42,13 @@ export interface StaleDoc {
   lastVerified: string | null;
   confidence: ConfidenceLevel;
   daysSinceVerified: number | null;
+}
+
+export interface RelatedDoc {
+  path: string;
+  title: string;
+  domain: string;
+  confidence: ConfidenceLevel;
 }
 
 export interface SearchResult extends ContextDocument {
@@ -95,6 +103,7 @@ export interface StructuredDocument {
   stateMachines: StateMachine[];
   pitfalls: StructuredPitfall[];
   sections: StructuredSection[];
+  related: RelatedDoc[];
 }
 
 export interface ContextHubConfig {

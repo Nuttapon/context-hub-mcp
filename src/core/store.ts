@@ -11,6 +11,7 @@ import type {
   ContextDocument,
   ContextHubConfig,
   DomainCount,
+  RelatedDoc,
   ReindexReport,
   SearchOptions,
   SearchResult,
@@ -53,6 +54,7 @@ function mapDocumentRow(row: Record<string, unknown>): ContextDocument {
     confidence: String(row.confidence) as ContextDocument["confidence"],
     content: String(row.content),
     lastVerified: row.last_verified ? String(row.last_verified) : null,
+    related: [],
   };
 }
 
@@ -119,6 +121,11 @@ export class ContextStore {
         context TEXT,
         created_at TEXT NOT NULL
       )`,
+      `CREATE TABLE IF NOT EXISTS relationships (
+  source_path TEXT NOT NULL,
+  target_path TEXT NOT NULL,
+  PRIMARY KEY (source_path, target_path)
+)`,
     ];
 
     for (const statement of statements) {
@@ -178,6 +185,16 @@ export class ContextStore {
         .prepare("DELETE FROM feedback WHERE document_path NOT IN (SELECT path FROM documents)")
         .run();
       this.#db.prepare("INSERT INTO documents_fts(documents_fts) VALUES ('rebuild')").run();
+
+      this.#db.prepare("DELETE FROM relationships").run();
+      const insertRel = this.#db.prepare(
+        "INSERT OR IGNORE INTO relationships (source_path, target_path) VALUES (?, ?)",
+      );
+      for (const doc of documents) {
+        for (const rel of doc.related) {
+          insertRel.run(doc.path, rel);
+        }
+      }
     });
 
     transaction(result.documents);
@@ -328,6 +345,47 @@ export class ContextStore {
           ? Number(row.days_since_verified)
           : null,
     }));
+  }
+
+  async getRelated(documentPath: string, depth = 1): Promise<RelatedDoc[]> {
+    const resolvedPath = this.resolveDocumentPath(documentPath);
+    if (!resolvedPath) return [];
+
+    const getDirectRelated = (sourcePaths: string[], excludePaths: string[]): RelatedDoc[] => {
+      if (sourcePaths.length === 0) return [];
+      const srcPlaceholders = sourcePaths.map(() => "?").join(", ");
+      const excPlaceholders = excludePaths.map(() => "?").join(", ");
+
+      const sql = `SELECT DISTINCT d.path, d.title, d.domain, d.confidence
+           FROM documents d
+           WHERE d.path IN (
+             SELECT target_path FROM relationships WHERE source_path IN (${srcPlaceholders})
+             UNION
+             SELECT source_path FROM relationships WHERE target_path IN (${srcPlaceholders})
+           ) AND d.path NOT IN (${excPlaceholders})`;
+
+      const stmt = this.#db.prepare(sql);
+      const params = [...sourcePaths, ...sourcePaths, ...excludePaths];
+      const rows = stmt.all(...(params as Parameters<typeof stmt.all>)) as Array<Record<string, unknown>>;
+
+      return rows.map(row => ({
+        path: String(row.path),
+        title: String(row.title),
+        domain: String(row.domain),
+        confidence: String(row.confidence) as ConfidenceLevel,
+      }));
+    };
+
+    const depth1 = getDirectRelated([resolvedPath], [resolvedPath]);
+
+    if (depth < 2 || depth1.length === 0) {
+      return depth1;
+    }
+
+    const depth1Paths = depth1.map(d => d.path);
+    const depth2 = getDirectRelated(depth1Paths, [resolvedPath, ...depth1Paths]);
+
+    return [...depth1, ...depth2];
   }
 
   async get(documentPath: string): Promise<ContextDocument | null> {

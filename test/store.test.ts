@@ -535,3 +535,151 @@ last_verified: 2020-01-01
     }
   });
 });
+
+describe("getRelated()", () => {
+  test("returns explicitly declared related docs", async () => {
+    const workspace = await createTempWorkspace();
+    workspaces.push(workspace);
+
+    await writeContextFile(workspace, "auth/flow.md", `---
+title: Auth Flow
+domain: auth
+tags: []
+confidence: high
+last_verified: 2026-01-01
+related:
+  - auth/session.md
+---
+# Auth Flow
+`);
+    await writeContextFile(workspace, "auth/session.md", `---
+title: Session Management
+domain: auth
+tags: []
+confidence: high
+last_verified: 2026-01-01
+---
+# Session Management
+`);
+
+    const config = await loadConfig({ cwd: workspace });
+    const store = await openContextStore(config);
+
+    try {
+      const related = await store.getRelated("auth/flow.md");
+      expect(related.some(r => r.path === "auth/session.md")).toBe(true);
+    } finally {
+      await store.close();
+    }
+  });
+
+  test("bidirectional: querying target also returns source", async () => {
+    const workspace = await createTempWorkspace();
+    workspaces.push(workspace);
+
+    await writeContextFile(workspace, "auth/flow.md", `---
+title: Auth Flow
+domain: auth
+tags: []
+confidence: high
+last_verified: 2026-01-01
+related:
+  - auth/session.md
+---
+# Auth Flow
+`);
+    await writeContextFile(workspace, "auth/session.md", `---
+title: Session Management
+domain: auth
+tags: []
+confidence: high
+last_verified: 2026-01-01
+---
+# Session Management
+`);
+
+    const config = await loadConfig({ cwd: workspace });
+    const store = await openContextStore(config);
+
+    try {
+      const related = await store.getRelated("auth/session.md");
+      expect(related.some(r => r.path === "auth/flow.md")).toBe(true);
+    } finally {
+      await store.close();
+    }
+  });
+
+  test("depth 2 returns second-hop docs", async () => {
+    const workspace = await createTempWorkspace();
+    workspaces.push(workspace);
+
+    await writeContextFile(workspace, "auth/flow.md", `---
+title: Auth Flow
+domain: auth
+tags: []
+confidence: high
+last_verified: 2026-01-01
+related:
+  - auth/session.md
+---
+# Auth Flow
+`);
+    await writeContextFile(workspace, "auth/session.md", `---
+title: Session Management
+domain: auth
+tags: []
+confidence: high
+last_verified: 2026-01-01
+related:
+  - auth/tokens.md
+---
+# Session
+`);
+    await writeContextFile(workspace, "auth/tokens.md", `---
+title: Tokens
+domain: auth
+tags: []
+confidence: high
+last_verified: 2026-01-01
+---
+# Tokens
+`);
+
+    const config = await loadConfig({ cwd: workspace });
+    const store = await openContextStore(config);
+
+    try {
+      const related = await store.getRelated("auth/flow.md", 2);
+      expect(related.some(r => r.path === "auth/tokens.md")).toBe(true);
+      // source doc itself should not appear
+      expect(related.every(r => r.path !== "auth/flow.md")).toBe(true);
+    } finally {
+      await store.close();
+    }
+  });
+
+  test("returns empty array for doc with no relationships", async () => {
+    const workspace = await createTempWorkspace();
+    workspaces.push(workspace);
+
+    await writeContextFile(workspace, "domains/solo.md", `---
+title: Solo Doc
+domain: test
+tags: []
+confidence: high
+last_verified: 2026-01-01
+---
+# Solo
+`);
+
+    const config = await loadConfig({ cwd: workspace });
+    const store = await openContextStore(config);
+
+    try {
+      const related = await store.getRelated("domains/solo.md");
+      expect(related).toHaveLength(0);
+    } finally {
+      await store.close();
+    }
+  });
+});

@@ -1,6 +1,7 @@
 import type {
   ContextDocument,
   KeyFile,
+  RelatedDoc,
   StructuredDocument,
   StructuredPitfall,
   StructuredSection,
@@ -118,6 +119,7 @@ function toStructuredPitfall(pitfall: ContextDocument): StructuredPitfall {
 export function buildStructuredDocument(
   document: ContextDocument,
   pitfalls: ContextDocument[],
+  related: RelatedDoc[] = [],
 ): StructuredDocument {
   const sections = parseSections(document.content);
 
@@ -132,5 +134,6 @@ export function buildStructuredDocument(
     stateMachines: extractStateMachines(sections),
     pitfalls: pitfalls.map(toStructuredPitfall),
     sections,
+    related,
   };
 }

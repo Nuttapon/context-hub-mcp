@@ -22,6 +22,7 @@ const frontmatterSchema = z.object({
     })
     .optional(),
   confidence: z.enum(["high", "medium", "low"]).optional(),
+  related: z.array(z.string().min(1)).optional(),
 });
 
 function inferDomain(relativePath: string): string {
@@ -45,6 +46,7 @@ function normalizeDocument(relativePath: string, rawContent: string): ContextDoc
     confidence: (meta.confidence ?? "medium") as ConfidenceLevel,
     content: parsed.content.trim(),
     lastVerified: meta.last_verified ?? null,
+    related: meta.related ?? [],
   };
 }
 

@@ -165,14 +165,15 @@ export function registerTools(server: McpServer, store: ContextStore): void {
         const includePitfalls =
           typeof args.include_related_pitfalls === "boolean" ? args.include_related_pitfalls : true;
         const pitfalls = includePitfalls ? await store.getPitfalls(document.domain) : [];
-        const structured = buildStructuredDocument(document, pitfalls);
+        const related = await store.getRelated(document.path, 1);
+        const structured = buildStructuredDocument(document, pitfalls, related);
         const structuredContent = structured as unknown as Record<string, unknown>;
 
         return {
           content: [
             {
               type: "text" as const,
-              text: `Structured context for ${document.path}: ${structured.keyFiles.length} key file(s), ${structured.stateMachines.length} state machine(s), ${structured.pitfalls.length} related pitfall(s).`,
+              text: `Structured context for ${document.path}: ${structured.keyFiles.length} key file(s), ${structured.stateMachines.length} state machine(s), ${structured.pitfalls.length} related pitfall(s), ${structured.related.length} related doc(s).`,
             },
           ],
           structuredContent,
@@ -243,6 +244,41 @@ export function registerTools(server: McpServer, store: ContextStore): void {
             .map(
               doc =>
                 `- **${doc.title}** (\`${doc.path}\`) | Confidence: ${doc.confidence} | Last verified: ${doc.lastVerified ?? "never"} | Age: ${doc.daysSinceVerified !== null ? `${doc.daysSinceVerified} days` : "unknown"}`,
+            )
+            .join("\n")}`,
+        );
+      } catch (error) {
+        return errorResult(error instanceof Error ? error.message : String(error));
+      }
+    },
+  );
+
+  server.registerTool(
+    "get_related",
+    {
+      description:
+        "Get documents related to a given context document. Relationships are bidirectional — if A lists B as related, querying B also returns A.",
+      inputSchema: {
+        path: z.string().min(1),
+        depth: z.number().int().min(1).max(2).optional(),
+      },
+    },
+    async args => {
+      try {
+        const related = await store.getRelated(
+          String(args.path),
+          typeof args.depth === "number" ? args.depth : 1,
+        );
+
+        if (related.length === 0) {
+          return textResult(`No related documents found for ${String(args.path)}.`);
+        }
+
+        return textResult(
+          `Related documents for ${String(args.path)}:\n\n${related
+            .map(
+              r =>
+                `- **${r.title}** (\`${r.path}\`) | Domain: ${r.domain} | Confidence: ${r.confidence}`,
             )
             .join("\n")}`,
         );
