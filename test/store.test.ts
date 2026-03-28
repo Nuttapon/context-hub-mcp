@@ -410,3 +410,128 @@ last_verified: 2026-01-01
     }
   });
 });
+
+describe("getStaleDocs()", () => {
+  test("returns docs with old last_verified", async () => {
+    const workspace = await createTempWorkspace();
+    workspaces.push(workspace);
+
+    await writeContextFile(workspace, "domains/old.md", `---
+title: Old Doc
+domain: test
+tags: []
+confidence: high
+last_verified: 2020-01-01
+---
+# Old
+`);
+    await writeContextFile(workspace, "domains/fresh.md", `---
+title: Fresh Doc
+domain: test
+tags: []
+confidence: high
+last_verified: 2026-03-28
+---
+# Fresh
+`);
+
+    const config = await loadConfig({ cwd: workspace });
+    const store = await openContextStore(config);
+
+    try {
+      const stale = await store.getStaleDocs({ days_threshold: 30 });
+      expect(stale.some(d => d.path === "domains/old.md")).toBe(true);
+      expect(stale.every(d => d.path !== "domains/fresh.md")).toBe(true);
+    } finally {
+      await store.close();
+    }
+  });
+
+  test("includes docs with missing last_verified at top", async () => {
+    const workspace = await createTempWorkspace();
+    workspaces.push(workspace);
+
+    await writeContextFile(workspace, "domains/no-date.md", `---
+title: No Date
+domain: test
+tags: []
+confidence: medium
+---
+# No date
+`);
+
+    const config = await loadConfig({ cwd: workspace });
+    const store = await openContextStore(config);
+
+    try {
+      const stale = await store.getStaleDocs({});
+      expect(stale.some(d => d.path === "domains/no-date.md")).toBe(true);
+      const noDateDoc = stale.find(d => d.path === "domains/no-date.md");
+      expect(noDateDoc?.daysSinceVerified).toBeNull();
+      // docs with null last_verified should sort first
+      expect(stale[0].daysSinceVerified).toBeNull();
+    } finally {
+      await store.close();
+    }
+  });
+
+  test("includes low confidence docs regardless of date", async () => {
+    const workspace = await createTempWorkspace();
+    workspaces.push(workspace);
+
+    await writeContextFile(workspace, "domains/low.md", `---
+title: Low Confidence
+domain: test
+tags: []
+confidence: low
+last_verified: 2026-03-28
+---
+# Low
+`);
+
+    const config = await loadConfig({ cwd: workspace });
+    const store = await openContextStore(config);
+
+    try {
+      const stale = await store.getStaleDocs({ days_threshold: 365 });
+      expect(stale.some(d => d.path === "domains/low.md")).toBe(true);
+    } finally {
+      await store.close();
+    }
+  });
+
+  test("filters by domain", async () => {
+    const workspace = await createTempWorkspace();
+    workspaces.push(workspace);
+
+    await writeContextFile(workspace, "auth/old.md", `---
+title: Auth Old
+domain: auth
+tags: []
+confidence: high
+last_verified: 2020-01-01
+---
+# Auth old
+`);
+    await writeContextFile(workspace, "payments/old.md", `---
+title: Payments Old
+domain: payments
+tags: []
+confidence: high
+last_verified: 2020-01-01
+---
+# Payments old
+`);
+
+    const config = await loadConfig({ cwd: workspace });
+    const store = await openContextStore(config);
+
+    try {
+      const stale = await store.getStaleDocs({ domain: "auth" });
+      expect(stale.every(d => d.domain === "auth")).toBe(true);
+      expect(stale.some(d => d.path === "auth/old.md")).toBe(true);
+    } finally {
+      await store.close();
+    }
+  });
+});

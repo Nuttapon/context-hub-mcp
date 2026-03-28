@@ -7,12 +7,14 @@ import { scanContextDocuments } from "./indexer.js";
 
 import type {
   Annotation,
+  ConfidenceLevel,
   ContextDocument,
   ContextHubConfig,
   DomainCount,
   ReindexReport,
   SearchOptions,
   SearchResult,
+  StaleDoc,
   TagCount,
 } from "./types.js";
 
@@ -268,6 +270,63 @@ export class ContextStore {
     return rows.map(row => ({
       tag: String(row.tag),
       count: Number(row.count),
+    }));
+  }
+
+  async getStaleDocs(options: {
+    domain?: string;
+    days_threshold?: number;
+    limit?: number;
+  }): Promise<StaleDoc[]> {
+    const threshold = options.days_threshold ?? 90;
+    const limit = options.limit ?? 20;
+
+    const whereClauses: string[] = [
+      `(
+      d.last_verified IS NULL
+      OR CAST(julianday('now') - julianday(d.last_verified) AS INTEGER) > ?
+      OR d.confidence = 'low'
+    )`,
+    ];
+    const params: unknown[] = [threshold];
+
+    if (options.domain !== undefined) {
+      whereClauses.push("d.domain = ?");
+      params.push(options.domain);
+    }
+
+    params.push(limit);
+
+    const sql = `SELECT
+      d.path,
+      d.title,
+      d.domain,
+      d.last_verified,
+      d.confidence,
+      CASE
+        WHEN d.last_verified IS NULL THEN NULL
+        ELSE CAST(julianday('now') - julianday(d.last_verified) AS INTEGER)
+      END AS days_since_verified
+    FROM documents d
+    WHERE ${whereClauses.join(" AND ")}
+    ORDER BY
+      CASE WHEN d.last_verified IS NULL THEN 0 ELSE 1 END ASC,
+      days_since_verified DESC
+    LIMIT ?`;
+
+    const stmt = this.#db.prepare(sql);
+    const rows = stmt.all(...(params as Parameters<typeof stmt.all>)) as Array<Record<string, unknown>>;
+
+    return rows.map(row => ({
+      path: String(row.path),
+      title: String(row.title),
+      domain: String(row.domain),
+      lastVerified: row.last_verified ? String(row.last_verified) : null,
+      confidence: String(row.confidence) as ConfidenceLevel,
+      daysSinceVerified:
+        row.days_since_verified !== null && row.days_since_verified !== undefined
+          ? Number(row.days_since_verified)
+          : null,
     }));
   }
 

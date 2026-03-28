@@ -216,6 +216,43 @@ export function registerTools(server: McpServer, store: ContextStore): void {
   );
 
   server.registerTool(
+    "get_stale_docs",
+    {
+      description:
+        "List context documents that may be outdated: last_verified is old or missing, or confidence is low.",
+      inputSchema: {
+        domain: z.string().min(1).optional(),
+        days_threshold: z.number().int().positive().optional(),
+        limit: z.number().int().positive().max(50).optional(),
+      },
+    },
+    async args => {
+      try {
+        const docs = await store.getStaleDocs({
+          domain: typeof args.domain === "string" ? args.domain : undefined,
+          days_threshold: typeof args.days_threshold === "number" ? args.days_threshold : undefined,
+          limit: typeof args.limit === "number" ? args.limit : undefined,
+        });
+
+        if (docs.length === 0) {
+          return textResult("No stale documents found.");
+        }
+
+        return textResult(
+          `Stale or low-confidence documents:\n\n${docs
+            .map(
+              doc =>
+                `- **${doc.title}** (\`${doc.path}\`) | Confidence: ${doc.confidence} | Last verified: ${doc.lastVerified ?? "never"} | Age: ${doc.daysSinceVerified !== null ? `${doc.daysSinceVerified} days` : "unknown"}`,
+            )
+            .join("\n")}`,
+        );
+      } catch (error) {
+        return errorResult(error instanceof Error ? error.message : String(error));
+      }
+    },
+  );
+
+  server.registerTool(
     "annotate_context",
     {
       description: "Leave an annotation on a context document when it is missing, outdated, or unclear.",

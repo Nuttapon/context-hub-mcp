@@ -34,6 +34,15 @@ export interface TagCount {
   count: number;
 }
 
+export interface StaleDoc {
+  path: string;
+  title: string;
+  domain: string;
+  lastVerified: string | null;
+  confidence: ConfidenceLevel;
+  daysSinceVerified: number | null;
+}
+
 export interface SearchResult extends ContextDocument {
   snippet: string;
 }
