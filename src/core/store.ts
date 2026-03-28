@@ -190,10 +190,6 @@ export class ContextStore {
     const normalizedQuery = normalizeSearchQuery(query);
     const limit = options.limit ?? 10;
 
-    const confidenceRank = `CASE d.confidence WHEN 'high' THEN 3 WHEN 'medium' THEN 2 WHEN 'low' THEN 1 ELSE 2 END`;
-    const minConfidenceValue =
-      options.confidence === "high" ? 3 : options.confidence === "medium" ? 2 : 1;
-
     const whereClauses: string[] = ["documents_fts MATCH ?"];
     const params: unknown[] = [normalizedQuery];
 
@@ -203,6 +199,9 @@ export class ContextStore {
     }
 
     if (options.confidence !== undefined) {
+      const minConfidenceValue =
+        options.confidence === "high" ? 3 : options.confidence === "medium" ? 2 : 1;
+      const confidenceRank = `CASE d.confidence WHEN 'high' THEN 3 WHEN 'medium' THEN 2 WHEN 'low' THEN 1 ELSE 2 END`;
       whereClauses.push(`(${confidenceRank}) >= ?`);
       params.push(minConfidenceValue);
     }
@@ -235,8 +234,8 @@ export class ContextStore {
                  ORDER BY rank
                  LIMIT ?`;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const rows = (this.#db.prepare(sql) as any).all(...params) as Array<Record<string, unknown>>;
+    const stmt = this.#db.prepare(sql);
+    const rows = stmt.all(...(params as Parameters<typeof stmt.all>)) as Array<Record<string, unknown>>;
 
     return rows.map(row => ({
       ...mapDocumentRow(row),

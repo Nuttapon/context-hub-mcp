@@ -201,7 +201,7 @@ confidence: high
 last_verified: 2026-01-01
 ---
 # Auth
-Authentication flow.
+Integration flow for authentication.
 `);
     await writeContextFile(workspace, "domains/payments.md", `---
 title: Payments
@@ -211,15 +211,16 @@ confidence: medium
 last_verified: 2026-01-01
 ---
 # Payments
-Payment gateway.
+Integration flow for payments.
 `);
 
     const config = await loadConfig({ cwd: workspace });
     const store = await openContextStore(config);
 
     try {
-      const results = await store.search("Authentication", { tags: ["auth"] });
+      const results = await store.search("Integration flow", { tags: ["auth"] });
       expect(results.every(r => r.tags.includes("auth"))).toBe(true);
+      expect(results.some(r => r.path === "domains/payments.md")).toBe(false);
     } finally {
       await store.close();
     }
@@ -258,6 +259,42 @@ Low confidence content.
       expect(all.length).toBeGreaterThanOrEqual(1);
       const filtered = await store.search("confidence content", { confidence: "high" });
       expect(filtered.every(r => r.confidence === "high")).toBe(true);
+    } finally {
+      await store.close();
+    }
+  });
+
+  test("confidence: low returns all levels", async () => {
+    const workspace = await createTempWorkspace();
+    workspaces.push(workspace);
+
+    await writeContextFile(workspace, "domains/high.md", `---
+title: High Doc
+domain: test
+tags: []
+confidence: high
+last_verified: 2026-01-01
+---
+# High
+Confidence test content.
+`);
+    await writeContextFile(workspace, "domains/med.md", `---
+title: Med Doc
+domain: test
+tags: []
+confidence: medium
+last_verified: 2026-01-01
+---
+# Med
+Confidence test content.
+`);
+
+    const config = await loadConfig({ cwd: workspace });
+    const store = await openContextStore(config);
+
+    try {
+      const results = await store.search("Confidence test content", { confidence: "low" });
+      expect(results.length).toBeGreaterThanOrEqual(2);
     } finally {
       await store.close();
     }
